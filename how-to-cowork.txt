@@ -1,0 +1,21 @@
+작업 방법 공유용 설명서
+
+1. 깃허브 브랜치 명칭 통일
+ - 년 월 일을 2글자씩 써서 작업일자를 명시
+ - 작업 내용을 소문자로 간략하게 작성
+ - 띄어쓰기는 하이픈(-)으로 대체
+
+1.EX)24년 12월 5일 영상처리 함수 작업 = 241205-imgprc-fnc-work
+    24년 8월 12일 모션 인식 버그 수정 작업 = 240812-motion-debug
+    24년 10월 25일 카메라 출력 신규 기능 생성 = 241025-camdisplay-init
+
+2. 깃허브 이슈, 풀 리퀘스트 명칭 통일
+ - 이슈와 풀리퀘스트 명칭은 브랜치와 통일
+ - 커밋 코멘트는 번역기를 사용하여 간략하게 작업 내용 영어로 작성
+
+2.EX)241205-imgprc-fnc-work
+    implemented binarization function in image process part
+    240812-motion-debug
+    motion recognition function debug(typo correction)
+
+3. 이후 작업 상황에 따라 수정 예정
