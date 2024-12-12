@@ -1,16 +1,9 @@
-# PyQt5와 GUI 충돌 방지를 위해 headless 버전 설치 
 # OpenCV for computer vision tasks
-opencv-python-headless
-# Numpy 버전 확인 후 업데이트 할 것
+opencv-python-headless==4.10.0.84
+opencv-contrib-python==4.10.0.84
 # Numpy for numerical computations
-numpy
-# YOLO 버전 확인 후 pip install 과정 기록 할 것
+numpy==1.26.4
 # YOLO for object detection tasks
-ultralytics
-# PyQt5 버전 확인 후 업데이트
+ultralytics==8.3.48
 # PyQt5 for GUI
-PyQt5
-# 그외에 기타 필요한 환경에 맞추어 버전 달기
-# numpy==1.0.0 <- 특정 버전 전용
-# numpy>=1.0.0 <- 특정 버전 이상
-# 나중에 한글 지우기
+PyQt5==5.15.11
