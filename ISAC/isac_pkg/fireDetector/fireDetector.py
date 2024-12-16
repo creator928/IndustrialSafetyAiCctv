@@ -15,6 +15,8 @@ class FireDetector:
         self.first_time = time.time()
         self.maintime = None
         self.count = 0
+        self.fire_state = False  # 화재 상태
+        self.fire_reset_time = None  # 화재 상태 초기화 시간
         
     def initialize_camera(self, camera_id=0):
         """카메라 초기화"""
@@ -25,7 +27,6 @@ class FireDetector:
         """단일 프레임 처리"""
         frame = cv2.resize(frame, (1024, 768))
         now_time = time.time()
-        fire_detected = False
         
         results = self.model.track(frame, verbose=False, persist=True)
         
@@ -53,11 +54,18 @@ class FireDetector:
             if self.maintime is not None:
                 if now_time - self.maintime >= 3:
                     if self.count >= 10:
-                        fire_detected = True
+                        self.fire_state = True
+                        self.fire_reset_time = time.time()  # 마지막 화재 감지 시간 기록
                     self.count = 0
                     self.maintime = None
         
-        return frame, fire_detected
+        # 화재 상태 초기화 논리
+        if self.fire_reset_time is not None:
+            if now_time - self.fire_reset_time > 5:  # 5초 동안 새로운 화재 감지 없으면 초기화
+                self.fire_state = False
+                self.fire_reset_time = None
+        
+        return frame, self.fire_state
     
     def _draw_detection(self, frame, box, class_id, track_id, conf):
         """감지된 객체 시각화"""
