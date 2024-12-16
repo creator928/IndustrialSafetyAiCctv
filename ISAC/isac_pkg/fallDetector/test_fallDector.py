@@ -27,7 +27,7 @@ def main():
 
         try:
             # FallyoloFallDetectDetect 메서드 호출하여 결과 처리
-            detected_img, cropped_img = fall_detector.yoloFallDetect(frame)
+            detected_img, cropped_img = fall_detector.fallDetect(frame)
         except Exception as e:
             print(f"오류 발생: {e}")
             detected_img = frame  # 오류 발생 시 원본 프레임을 출력

@@ -3,10 +3,13 @@ import numpy as np
 from ultralytics import YOLO
 import cvzone
 import time
+import os
 
-class FireDetector:
+class ISAC_FireDetector:
     def __init__(self, model_path="fire.pt", confidence_threshold=0.53):
         # YOLO 모델 초기화
+        base_dir = os.path.dirname(__file__)
+        model_path = os.path.join(base_dir, 'fire.pt')  # fire.pt의 절대 경로
         self.model = YOLO(model_path)
         self.names = self.model.model.names
         self.confidence_threshold = confidence_threshold
@@ -15,17 +18,18 @@ class FireDetector:
         self.first_time = time.time()
         self.maintime = None
         self.count = 0
+        self.fire_state = False  # 화재 상태
+        self.fire_reset_time = None  # 화재 상태 초기화 시간
         
     def initialize_camera(self, camera_id=0):
         """카메라 초기화"""
         self.cap = cv2.VideoCapture(camera_id)
         return self.cap.isOpened()
     
-    def process_frame(self, frame):
+    def fireDetect(self, frame):
         """단일 프레임 처리"""
         frame = cv2.resize(frame, (1024, 768))
         now_time = time.time()
-        fire_detected = False
         
         results = self.model.track(frame, verbose=False, persist=True)
         
@@ -53,20 +57,30 @@ class FireDetector:
             if self.maintime is not None:
                 if now_time - self.maintime >= 3:
                     if self.count >= 10:
-                        fire_detected = True
+                        self.fire_state = True
+                        self.fire_reset_time = time.time()  # 마지막 화재 감지 시간 기록
                     self.count = 0
                     self.maintime = None
         
-        return frame, fire_detected
+        # 화재 상태 초기화 논리
+        if self.fire_reset_time is not None:
+            if now_time - self.fire_reset_time > 5:  # 5초 동안 새로운 화재 감지 없으면 초기화
+                self.fire_state = False
+                self.fire_reset_time = None
+        
+        return frame, self.fire_state
     
     def _draw_detection(self, frame, box, class_id, track_id, conf):
         """감지된 객체 시각화"""
         x1, y1, x2, y2 = box
         c = self.names[class_id]
-        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-        cvzone.putTextRect(frame, f'{track_id}', (x1, y2), 1, 1)
         fconf = conf * 100
-        cvzone.putTextRect(frame, f'{c} ({fconf:.2f})', (x1, y1), 1, 1)
+        cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 50, 255), 5)
+        cv2.rectangle(frame, (int((x1 + x2) // 2 * 0.85)-10, int(y1) - 35), (int((x1 + x2) // 2 * 0.85) + 140, int(y1)), (0, 50, 255), -1)
+        cv2.putText(frame, f'{c} ({fconf:.2f})', (int((x1 + x2) // 2 * 0.85), int(y1) - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 10)
+        cv2.putText(frame, f'{c} ({fconf:.2f})', (int((x1 + x2) // 2 * 0.85), int(y1) - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
     
     def release(self):
         """리소스 해제"""
@@ -74,7 +88,7 @@ class FireDetector:
             self.cap.release()
 
 def main():
-    detector = FireDetector()
+    detector = ISAC_FireDetector()
     detector.initialize_camera()
 
     while True:

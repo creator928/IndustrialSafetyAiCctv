@@ -1,142 +1,34 @@
-"""
-pip uninstall opencv-python
-pip install opencv-python-headless
-"""
 import cv2
 import numpy as np
-from ultralytics import YOLO
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QLabel
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QLabel, QVBoxLayout, QFileDialog
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import Qt, QTimer
-import lap # track에 필요한 것
 import time # 시간 측정
+
+from isac_pkg.fallDetector.fallDector import ISAC_FallDetector
+from isac_pkg.helpDetector.helpDetector import ISAC_HelpDetector
+from isac_pkg.fireDetector.fireDetector import ISAC_FireDetector
+
+# 이건 옮길 때 필요 없음
+from isac_pkg.ISACdetector import ISAC
 
 # region 글로벌 변수 선언
 is_cam_connect = False  # 카메라 연결 확인 변수
-model_yolo = YOLO("yolo11s.pt")  # YOLO11n 모델
 fall_durations = {} # 추적 ID별로 fall 시작 시간 저장
-
 # endregion 글로벌 변수 끝
 
-# region 주요 함수 구현부
-def printTest():
-    print("Test complete!")
-
-# 00. YOLO 기본 디텍션(이미지)
-def yoloAllDetect(img):
-    global model_yolo
-    detected_result = model_yolo(img, verbose=False) # 모델 YOLO 기반 디텍팅 결과 저장
-    detected_img = detected_result[0].plot()  # 결과를 시각화하여 프레임에 그리기
-    return detected_img
-# 00. 반환 : 디텍팅 된 이미지
-# 01. YOLO 필터링 디텍션(이미지, 필터링 문자열 리스트)
-def yoloFilterdDetect(img, filter_name):
-    global model_yolo
-    cls_names = model_yolo.names # YOLO에서 구분 가능한 클래시피케이션 리스트 호출
-    detected_result = model_yolo(img, verbose=False) # 모델 YOLO 기반 디텍팅 결과 저장
-    detected_img = img.copy() # 결과 이미지 저장용 img 복제
-    for r in detected_result:
-        box = r.boxes # 박스 정보 저장
-        for b in box:
-            conf = b.conf[0] * 100 # 해당 객체의 신뢰도 (백분률 전환)
-            if conf > 50: # 신뢰도가 50이상일 때
-                x1, y1, x2, y2 = b.xyxy[0]  # bounding box 시작xy, 끝xy whkvy
-                cls_id = int(b.cls[0]) # 클래스 인덱스(YOLO 클래시피케이션 id)
-                cls_name = cls_names[cls_id] # 클래스 id에 따른 name 가져옴
-                if cls_name in filter_name: # 만약 필터링 리스트에 cls 네임이 있다면
-                    detct_info = f"{cls_name} ({conf:.2f}%)"
-                    if cls_name == "person":
-                        cv2.rectangle(detected_img, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
-                        cv2.putText(detected_img, detct_info, (int((x1+x2)//2*0.85), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 10)
-                        cv2.putText(detected_img, detct_info, (int((x1+x2)//2*0.85), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
-                    else:
-                        cv2.rectangle(detected_img, (int(x1), int(y1)), (int(x2), int(y2)), (255, 50, 50), 2)
-                        cv2.putText(detected_img, detct_info, (int((x1+x2)//2*0.85), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 10)
-                        cv2.putText(detected_img, detct_info, (int((x1+x2)//2*0.85), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
-    return detected_img
-# 01. 반환 : 디텍팅 된 이미지
-# 02. YOLO person 디텍션 & 크롭(이미지, 필터링 문자열 리스트)
-def yoloPersonDetect(img):
-    global model_yolo
-    cropped_bbxy = [] # [x1, y1, x2, y2]를 리스트로 저장
-    cropped_img = [] # [x1, y1, x2, y2]로 자른 이미지들 저장
-    cls_names = model_yolo.names # YOLO에서 구분 가능한 클래시피케이션 리스트 호출
-    detected_result = model_yolo(img, verbose=False) # 모델 YOLO 기반 디텍팅 결과 저장
-    detected_img = img.copy() # 결과 이미지 저장용 img 복제
-    for r in detected_result:
-        box = r.boxes # 박스 정보 저장
-        for b in box:
-            conf = b.conf[0] * 100 # 해당 객체의 신뢰도 (백분률 전환)
-            if conf > 50: # 신뢰도가 50이상일 때
-                x1, y1, x2, y2 = b.xyxy[0]  # bounding box 시작xy, 끝xy whkvy
-                # 바운딩 박스 좌표 저장 xyxy
-                cropped_bbxy.append([int(x1), int(y1), int(x2), int(y2)])
-                # 바운딩 박스 영역으로 이미지를 크롭
-                cropped_img.append(img[int(y1):int(y2), int(x1):int(x2)])
-                cls_id = int(b.cls[0]) # 클래스 인덱스(YOLO 클래시피케이션 id)
-                cls_name = cls_names[cls_id] # 클래스 id에 따른 name 가져옴
-                if cls_name == "person":
-                    detct_info = f"Person ({conf:.2f}%)" # 출력 정보
-                    cv2.rectangle(detected_img, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
-                    cv2.putText(detected_img, detct_info, (int((x1+x2)//2*0.85), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 10)
-                    cv2.putText(detected_img, detct_info, (int((x1+x2)//2*0.85), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
-    return detected_img, cropped_img, cropped_bbxy
-# 02. 반환 : 디텍팅 된 이미지, 크롭된 이미지 리스트, 크롭을 한 좌표
-# 03. fall 디텍션
-def yoloFallDetect(img):
-    global model_yolo
-    global fall_durations # 넘어진 시간 저장용 딕셔너리
-    cropped_bbxy = [] # [x1, y1, x2, y2]를 리스트로 저장
-    cls_names = model_yolo.names # YOLO에서 구분 가능한 클래시피케이션 리스트 호출
-    detected_result = model_yolo.track(img, verbose=False, persist=True) # persist 옵션을 통해 추적
-    detected_img = img.copy() # 결과 이미지 저장용 img 복제
-    for r in detected_result:
-        box = r.boxes
-        for b in box:
-            conf = b.conf[0] * 100 # 해당 객체의 신뢰도 (백분률 전환)
-            if conf > 50: # 신뢰도가 50이상일 때
-                x1, y1, x2, y2 = b.xyxy[0]  # bounding box 시작xy, 끝xy whkvy
-                cls_id = int(b.cls[0]) # 클래스 인덱스(YOLO 클래시피케이션 id)
-                cls_name = cls_names[cls_id] # 클래스 id에 따른 name 가져옴
-                obj_id = int(b.id[0]) # 객체의 id(동일 객체 추적)
-                detct_info = f"{cls_name} ({conf:.2f}%)" # 출력 정보
-                if cls_name == "bottle": # 넘어짐 대상 person
-                    person_h = y2 - y1 # 높이
-                    person_w = x2 - x1 # 너비
-                    person_thr = person_h - person_w # 높이 - 너비 스레스홀드
-                    current_time = time.time() # 현재시간 호출
-                    if person_thr <= 0: # 스레스홀드가 음수일 경우
-                        if obj_id not in fall_durations: # 글로벌 변수 딕셔너리에 id가 없을 경우
-                            fall_durations[obj_id] = current_time # 현재 시간을 id에 맞춰 저장
-                        fall_due = current_time - fall_durations[obj_id]
-                        #print(obj_id, fall_durations, current_time)
-                        if fall_due >= 5:
-                            color = (0, 0, 255)
-                        elif fall_due >= 2:
-                            color = (0, 255, 255)
-                        else:
-                            color = (0, 255, 0)
-                    else:
-                        if obj_id in fall_durations:
-                            del fall_durations[obj_id]
-                        color = (0, 255, 0)
-                    cv2.rectangle(detected_img, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
-                    cv2.putText(detected_img, detct_info, (int((x1+x2)//2*0.85), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 10)
-                    cv2.putText(detected_img, detct_info, (int((x1+x2)//2*0.85), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
-                else:
-                    cv2.rectangle(detected_img, (int(x1), int(y1)), (int(x2), int(y2)), (255, 50, 50), 2)
-                    cv2.putText(detected_img, detct_info, (int((x1+x2)//2*0.85), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 10)
-                    cv2.putText(detected_img, detct_info, (int((x1+x2)//2*0.85), int(y1)-10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
-    return detected_img
-# 03. 반환 : 
-
-# endregion 주요 함수 구현부
 
 # region 메인 윈도우 클래스 정의
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        # ISAC 패키지 클래스 선언
+        #self.isac = ISAC()
+        self.isacfall = ISAC_FallDetector()
+        self.isachelp = ISAC_HelpDetector()
+        self.isacfire = ISAC_FireDetector()
+
         # UI 초기화
         self.initUI()
         # UI 출력
@@ -149,7 +41,7 @@ class MainWindow(QMainWindow):
 
         # 카메라 출력용 레이블
         self.camdisplay_label = QLabel(self)
-        self.camdisplay_label.setGeometry(50, 50, 640, 480)  # 시작x, 시작y, width, height
+        self.camdisplay_label.setGeometry(25, 100, 640, 480)  # 시작x, 시작y, width, height
         # 이미지 초기화
         width, height = 640, 480
         blank_image = QImage(width, height, QImage.Format_RGB32)
@@ -162,11 +54,114 @@ class MainWindow(QMainWindow):
 
         # 카메라 오픈 버튼 생성
         self.camopen_button = QPushButton("Camera Open", self)
-        self.camopen_button.setGeometry(50, 600, 200, 50)  # 시작x, 시작y, width, height
+        self.camopen_button.setGeometry(25, 25, 200, 50)  # 시작x, 시작y, width, height
         # 버튼 클릭 시 카메라 테스트 진행
         self.camopen_button.clicked.connect(self.cameraTest)
 
-        # 
+        # 비디오 오픈 버튼 생성
+        self.videoopen_button = QPushButton("Video Open", self)
+        self.videoopen_button.setGeometry(275, 25, 200, 50)  # 시작x, 시작y, width, height
+        # 버튼 클릭 시 비디오 테스트 진행
+        self.videoopen_button.clicked.connect(self.videoTest)
+
+        # 현재 시간 표시용 
+        self.date_label = QLabel("Date : ", self)
+        # 텍스트 크기 조정
+        self.date_label.setStyleSheet("font-size: 30px;")  # 원하는 크기로 조정
+        self.date_label.setGeometry(10, 950, 450, 50)
+        # 타이머 설정 (1초마다 업데이트)
+        self.date_timer = QTimer(self)
+        self.date_timer.timeout.connect(self.updateDate)
+        self.date_timer.start(1000)  # 1000ms = 1초
+        self.updateDate()
+        # 캡처 및 세이브 버튼
+        self.date_button = QPushButton("Date Save", self)
+        self.date_button.setGeometry(450, 950, 200, 50)  # 시작x, 시작y, width, height
+        # 버튼 클릭 시 카메라 테스트 진행
+        self.date_button.clicked.connect(self.dateSave)
+        # 테스트용 출력부
+        self.tmpdisplay_label = QLabel(self)
+        self.tmpdisplay_label.setGeometry(700, 100, 640, 480)  # 시작x, 시작y, width, height
+        self.tmpdisplay_label.setPixmap(pixmap)
+        # QLabel의 가운데 정렬 설정
+        self.tmpdisplay_label.setAlignment(Qt.AlignCenter)
+
+    def updateDate(self):
+        # time 모듈을 사용해 현재 시간 가져오기
+        system_time = time.localtime()  # 현재 로컬 시간 반환
+        # 날짜 문자열로 설정
+        system_date = f"{system_time.tm_year}-{system_time.tm_mon:02d}-{system_time.tm_mday:02d} {system_time.tm_hour:02d}:{system_time.tm_min:02d}:{system_time.tm_sec:02d}"
+        self.date_label.setText(f"Date : {system_date}")
+        return system_date
+    
+    def dateSave(self):
+        # 날짜 받아와서 저장하기 버튼
+        saved_date = self.updateDate()
+        print(saved_date)
+        _, sample_img = self.cap.read()
+        # show_img = self.isac.detectFilter(sample_img, ["person", "bottle", "cell phone"])
+        if show_img is None:
+            show_img = sample_img
+        show_img = cv2.cvtColor(show_img, cv2.COLOR_BGR2RGB)
+        # numpy 배열을 QImage로 변환
+        h, w, ch = show_img.shape # 프레임 h, w, 채널
+        bytes_per_line = ch * w
+        qimg = QImage(show_img.data, w, h, bytes_per_line, QImage.Format_RGB888)
+        # QImage를 QPixmap으로 변환 후 QLabel에 설정
+        pixmap = QPixmap.fromImage(qimg)
+        # QLabel에 이미지 출력
+        self.tmpdisplay_label.setPixmap(pixmap)
+        self.tmpdisplay_label.repaint()
+
+    # MainWindow 클래스 내에 videoTest 함수 추가
+    def videoTest(self):
+        # 파일 오픈 다이얼로그를 띄워 비디오 파일 선택
+        file_path, _ = QFileDialog.getOpenFileName(self, "Open Video File", "", "Video Files (*.mp4 *.avi *.mov *.mkv)")
+        if not file_path:  # 파일이 선택되지 않으면 함수 종료
+            print("No file selected.")
+            return
+        
+        # 비디오 캡처 객체 생성
+        self.cap = cv2.VideoCapture(file_path)
+        if not self.cap.isOpened():
+            print(f"Cannot open the video file: {file_path}")
+            return
+        
+        global is_cam_connect
+        is_cam_connect = True  # 비디오가 연결된 상태로 설정
+
+        # 프레임 업데이트 타이머 설정
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_video_frame)  # 프레임 업데이트 호출
+        self.timer.start(30)  # 30ms마다 호출 (약 33fps)
+
+    def update_video_frame(self):
+        # VideoCapture로부터 프레임을 가져옴
+        ret, frame = self.cap.read()
+        if ret:
+            # TODO 여기서 영상처리 함수를 호출하여 사용
+            is_help = self.isachelp.helpDetect(frame)
+            print(is_help)
+
+            frame, cropf = self.isacfall.fallDetect(frame)
+
+            frame, is_fire = self.isacfire.fireDetect(frame)
+            print(is_fire)
+            # TODO 영상처리 종료
+
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # 이미지를 RGB 형식으로 변환
+            h, w, ch = frame.shape  # 프레임의 높이, 너비, 채널 정보
+            bytes_per_line = ch * w
+            qimg = QImage(frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
+            pixmap = QPixmap.fromImage(qimg)
+            self.camdisplay_label.setPixmap(pixmap)  # QLabel에 이미지 출력
+            self.camdisplay_label.repaint()  # 즉시 갱신
+        else:
+            print("Video playback completed.")
+            self.timer.stop()  # 타이머 정지
+            self.cap.release()  # 비디오 캡처 객체 해제
+            global is_cam_connect
+            is_cam_connect = False
 
     def cameraTest(self):
         # 카메라 열렸는지 확인
@@ -192,15 +187,15 @@ class MainWindow(QMainWindow):
         # VideoCapture로부터 프레임을 가져옴
         ret, frame = self.cap.read()
 
-        test_imglist = []
-        test_xylist = []
         if ret:
             # TODO 여기서 영상처리 함수를 호출하여 사용
+            is_help = self.isachelp.helpDetect(frame)
+            print(is_help)
 
-            #frame = yoloAllDetect(frame)
-            #frame = yoloFilterdDetect(frame, ["person", "bottle", "cell phone"])
-            #frame, test_imglist, test_xylist = yoloPersonDetect(frame)
-            frame = yoloFallDetect(frame)
+            frame, cropf = self.isacfall.fallDetect(frame)
+
+            frame, is_fire = self.isacfire.fireDetect(frame)
+            print(is_fire)
             # TODO 영상처리 종료
 
             # 이미지 출력 시작

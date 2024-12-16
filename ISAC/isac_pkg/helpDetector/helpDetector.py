@@ -3,11 +3,11 @@ from ultralytics import YOLO
 import time
 
 # YOLO 모델 초기화
-MODEL = YOLO("yolo11s-pose.pt")  # 사용할 YOLOv8 모델 경로 지정
+MODEL = YOLO("yolo11n-pose.pt")  # 사용할 YOLOv8 모델 경로 지정
 
 
-class ISAC_PoseEstimator:
-    def __init__(self, model_path="yolo11s-pose.pt"):
+class ISAC_HelpDetector:
+    def __init__(self, model_path="yolo11n-pose.pt"):
         """
         클래스 초기화
         Args:
