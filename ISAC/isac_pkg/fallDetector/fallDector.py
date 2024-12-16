@@ -4,16 +4,16 @@ import lap # track에 필요한 것
 import time # 시간 측정
 
 # region 글로벌 변수 선언
-MODEL= YOLO("yolo11s.pt")  # YOLO11s 모델
+MODEL= YOLO("yolo11n.pt")  # YOLO11s 모델
 fall_durations = {}
 # endregion 글로벌 변수 끝
 
 
-class ISAC_FallDect():
+class ISAC_FallDetector():
     def __init__(self):
         pass
 
-    def yoloFallDetect(self, img):
+    def fallDetect(self, img):
         global MODEL
         global fall_durations  # 넘어짐 시간 저장용 딕셔너리
         cropped_bbxy = []  # [x1, y1, x2, y2]를 리스트로 저장
@@ -66,12 +66,13 @@ class ISAC_FallDect():
                         cv2.putText(detected_img, detct_info, (int((x1 + x2) // 2 * 0.85), int(y1) - 10),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
                     else:
-                        cv2.rectangle(detected_img, (int(x1), int(y1)), (int(x2), int(y2)), (255, 50, 50), 2)
-                        cv2.putText(detected_img, detct_info, (int((x1 + x2) // 2 * 0.85), int(y1) - 10),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 10)
-                        cv2.putText(detected_img, detct_info, (int((x1 + x2) // 2 * 0.85), int(y1) - 10),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
+                        # cv2.rectangle(detected_img, (int(x1), int(y1)), (int(x2), int(y2)), (255, 50, 50), 2)
+                        # cv2.putText(detected_img, detct_info, (int((x1 + x2) // 2 * 0.85), int(y1) - 10),
+                        #             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 10)
+                        # cv2.putText(detected_img, detct_info, (int((x1 + x2) // 2 * 0.85), int(y1) - 10),
+                        #             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
                         cropped_img = None
+                        pass
 
         return detected_img, cropped_img
 

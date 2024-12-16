@@ -11,7 +11,7 @@ def main():
         if not ret:
             break
             
-        processed_frame, fire_detected = detector.process_frame(frame)
+        processed_frame, fire_detected = detector.fireDetect(frame)
         
         if fire_detected:
             print("Fire Detected!")

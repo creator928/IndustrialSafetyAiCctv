@@ -1,6 +1,7 @@
 # OpenCV for computer vision tasks
 opencv-python-headless==4.10.0.84
 opencv-contrib-python==4.10.0.84
+cvzone==1.6.1
 # Numpy for numerical computations
 numpy==1.26.4
 # YOLO for object detection tasks
