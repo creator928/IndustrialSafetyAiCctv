@@ -8,3 +8,5 @@ numpy==1.26.4
 ultralytics==8.3.48
 # PyQt5 for GUI
 PyQt5==5.15.11
+# for object tracking 용
+lap==0.5.12

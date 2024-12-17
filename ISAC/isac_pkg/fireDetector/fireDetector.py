@@ -28,7 +28,7 @@ class ISAC_FireDetector:
     
     def fireDetect(self, frame):
         """단일 프레임 처리"""
-        frame = cv2.resize(frame, (1024, 768))
+        #frame = cv2.resize(frame, (1024, 768))
         now_time = time.time()
         
         results = self.model.track(frame, verbose=False, persist=True)

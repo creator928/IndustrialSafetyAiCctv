@@ -21,6 +21,7 @@ class ISAC_FallDetector():
         detected_result = MODEL.track(img, verbose=False, persist=True)  # persist 옵션을 통해 추적
         detected_img = img.copy()  # 결과 이미지 저장용 img 복제
         cropped_img = None  # 초기값
+        is_fall = [(0, False)]
 
         for r in detected_result:
             box = r.boxes
@@ -48,6 +49,7 @@ class ISAC_FallDetector():
                             if fall_due >= 5:
                                 color = (0, 0, 255)
                                 cropped_img = img[int(y1):int(y2), int(x1):int(x2)]  # 5초 이상 넘어짐
+                                is_fall = [(0, True)]
                             elif fall_due >= 2:
                                 color = (0, 255, 255)
                                 cropped_img = None
@@ -74,7 +76,7 @@ class ISAC_FallDetector():
                         cropped_img = None
                         pass
 
-        return detected_img, cropped_img
+        return detected_img, cropped_img, is_fall
 
 
    
