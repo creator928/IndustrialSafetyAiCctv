@@ -7,6 +7,6 @@ numpy==1.26.4
 # YOLO for object detection tasks
 ultralytics==8.3.48
 # PyQt5 for GUI
-PyQt5==5.15.11
+PyQt5==5.14.2
 # for object tracking 용
 lap==0.5.12
