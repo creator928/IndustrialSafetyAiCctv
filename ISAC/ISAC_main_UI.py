@@ -197,13 +197,13 @@ class MainWindow(QMainWindow):
             return
         
         # 비디오 캡처 객체 생성
-        self.cap = cv2.VideoCapture(file_path)
-        if not self.cap.isOpened():
+        self.capv = cv2.VideoCapture(file_path)
+        if not self.capv.isOpened():
             print(f"Cannot open the video file: {file_path}")
             return
         
-        global is_cam_connect
-        is_cam_connect = True  # 비디오가 연결된 상태로 설정
+        # global is_cam_connect
+        # is_cam_connect = True  # 비디오가 연결된 상태로 설정
 
         # 프레임 업데이트 타이머 설정
         self.timer = QTimer(self)
@@ -212,35 +212,33 @@ class MainWindow(QMainWindow):
 
     def update_video_frame(self):
         # VideoCapture로부터 프레임을 가져옴
-        ret, frame = self.cap.read()
+        ret, framev = self.capv.read()
         if ret:
             # TODO 여기서 영상처리 함수를 호출하여 사용
             if self.option_checkv[0]: 
-                frame, cropf, is_fall = self.isacfall.fallDetect(frame)
+                framev, cropf, is_fall = self.isacfall.fallDetect(framev)
             if self.option_checkv[1]:
-                is_help = self.isachelp.helpDetect(frame)
+                is_help = self.isachelp.helpDetect(framev)
                 print(is_help)
                 self.update_alert_label_helpv(is_help)
             if self.option_checkv[2]:
-                frame, is_fire = self.isacfire.fireDetect(frame)
+                framev, is_fire = self.isacfire.fireDetect(framev)
                 print(is_fire)
                 self.update_alert_label_firev(is_fire)
             # TODO 영상처리 종료
 
-            frame = cv2.resize(frame, (800, 600))
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # 이미지를 RGB 형식으로 변환
-            h, w, ch = frame.shape  # 프레임의 높이, 너비, 채널 정보
+            framev = cv2.resize(framev, (800, 600))
+            framev = cv2.cvtColor(framev, cv2.COLOR_BGR2RGB)  # 이미지를 RGB 형식으로 변환
+            h, w, ch = framev.shape  # 프레임의 높이, 너비, 채널 정보
             bytes_per_line = ch * w
-            qimg = QImage(frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
+            qimg = QImage(framev.data, w, h, bytes_per_line, QImage.Format_RGB888)
             pixmap = QPixmap.fromImage(qimg)
             self.tmpdisplay_label.setPixmap(pixmap)  # QLabel에 이미지 출력
             self.tmpdisplay_label.repaint()  # 즉시 갱신
         else:
             print("Video playback completed.")
             self.timer.stop()  # 타이머 정지
-            self.cap.release()  # 비디오 캡처 객체 해제
-            global is_cam_connect
-            is_cam_connect = False
+            self.capv.release()  # 비디오 캡처 객체 해제
 
     def cameraTest(self):
         # 카메라 열렸는지 확인
@@ -309,8 +307,8 @@ class MainWindow(QMainWindow):
     def update_alert_label_firev(self, is_fire):
         if is_fire:
             # 화재 상태
-            self.cameralert_labelv.setText("Fire!!")
-            self.cameralert_labelv.setStyleSheet("""
+            self.cameralert_label.setText("Fire!!")
+            self.cameralert_label.setStyleSheet("""
                 background-color: red;
                 color: black;
                 font-size: 40px;
@@ -319,8 +317,8 @@ class MainWindow(QMainWindow):
             """)
         else:
             # 정상 상태
-            self.cameralert_labelv.setText("Normal")
-            self.cameralert_labelv.setStyleSheet("""
+            self.cameralert_label.setText("Normal")
+            self.cameralert_label.setStyleSheet("""
                 background-color: white;
                 color: green;
                 font-size: 30px;
@@ -332,8 +330,8 @@ class MainWindow(QMainWindow):
         is_help = any(status for _, status in status_list)
         if is_help:
             # HELP 상태: 노란색 배경, 검정색 글씨
-            self.cameralert_labelv.setText("HELP!")
-            self.cameralert_labelv.setStyleSheet("""
+            self.cameralert_label.setText("HELP!")
+            self.cameralert_label.setStyleSheet("""
                 background-color: yellow;
                 color: black;
                 font-size: 40px;
@@ -342,8 +340,8 @@ class MainWindow(QMainWindow):
             """)
         else:
             # 원래 상태 (Normal)
-            self.cameralert_labelv.setText("Normal")
-            self.cameralert_labelv.setStyleSheet("""
+            self.cameralert_label.setText("Normal")
+            self.cameralert_label.setStyleSheet("""
                 background-color: white;
                 color: green;
                 font-size: 30px;
