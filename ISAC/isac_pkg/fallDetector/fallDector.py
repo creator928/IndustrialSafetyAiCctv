@@ -68,11 +68,6 @@ class ISAC_FallDetector():
                         cv2.putText(detected_img, detct_info, (int((x1 + x2) // 2 * 0.85), int(y1) - 10),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
                     else:
-                        # cv2.rectangle(detected_img, (int(x1), int(y1)), (int(x2), int(y2)), (255, 50, 50), 2)
-                        # cv2.putText(detected_img, detct_info, (int((x1 + x2) // 2 * 0.85), int(y1) - 10),
-                        #             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 10)
-                        # cv2.putText(detected_img, detct_info, (int((x1 + x2) // 2 * 0.85), int(y1) - 10),
-                        #             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
                         cropped_img = None
                         pass
 
