@@ -1,68 +1,124 @@
+# PyQt5 및 OpenCV 라이브러리 임포트
 import cv2
 import numpy as np
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QLabel, QFileDialog, QCheckBox, QWidget, QMessageBox
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QLabel, QFileDialog, QCheckBox, QLineEdit, QTextEdit
 from PyQt5.QtGui import QPixmap, QImage
 from PyQt5.QtCore import Qt, QTimer
-import time # 시간 측정
+import time  # 시간 측정용 라이브러리
 
+# ISAC 패키지 내 탐지 모듈 임포트
 from isac_pkg.fallDetector.fallDector import ISAC_FallDetector
 from isac_pkg.helpDetector.helpDetector import ISAC_HelpDetector
 from isac_pkg.fireDetector.fireDetector import ISAC_FireDetector
 
-# 이건 옮길 때 필요 없음
-from isac_pkg.ISACdetector import ISAC
-
-# region 글로벌 변수 선언
-is_cam_connect = False  # 카메라 연결 확인 변수
-fall_durations = {} # 추적 ID별로 fall 시작 시간 저장
-# endregion 글로벌 변수 끝
-
-
-# region 메인 윈도우 클래스 정의
+# MainWindow 클래스 정의
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        # ISAC 패키지 클래스 선언
-        #self.isac = ISAC()
-        self.isacfall = ISAC_FallDetector()
-        self.isachelp = ISAC_HelpDetector()
-        self.isacfire = ISAC_FireDetector()
+
+        # 탐지 모듈 초기화
+        self.isacfall_a = ISAC_FallDetector()
+        self.isachelp_a = ISAC_HelpDetector()
+        self.isacfire_a = ISAC_FireDetector()
+        self.isacfall_b = ISAC_FallDetector()
+        self.isachelp_b = ISAC_HelpDetector()
+        self.isacfire_b = ISAC_FireDetector()
+
+        # 비디오 캡처 객체 초기화
+        self.cap_a = None
+        self.cap_b = None
+
+        # QTimer 초기화 (비디오 A, B용)
+        self.timer_a = QTimer(self)
+        self.timer_b = QTimer(self)
+
+        # 체크박스 상태 관리 리스트 (각 비디오의 Fall, Help, Fire 상태 저장)
+        self.check_list_a = [False, False, False]
+        self.check_list_b = [False, False, False]
 
         # UI 초기화
         self.initUI()
-        # UI 출력
-        self.show()
 
     def initUI(self):
         # 메인 윈도우 설정
-        self.setWindowTitle("ISAC GUI")
-        self.setGeometry(100, 100, 2500, 1200)  # 시작x, 시작y, width, height
+        self.setWindowTitle("ISAC - Industrial Safety A.I CCTV")
+        self.setGeometry(100, 100, 2500, 1200)
 
-        # 카메라 출력용 레이블
-        self.camdisplay_label = QLabel(self)
-        self.camdisplay_label.setGeometry(25, 100, 800, 600)  # 시작x, 시작y, width, height
-        # 이미지 초기화
-        width, height = 800, 600
-        blank_image = QImage(width, height, QImage.Format_RGB32)
+        # 비디오 A 화면 출력용 QLabel
+        self.display_label_a = QLabel(self)
+        self.display_label_a.setGeometry(25, 100, 800, 600)
+        blank_image = QImage(800, 600, QImage.Format_RGB32)
         blank_image.fill(Qt.black)
-        # QLabel에 빈 이미지 설정
         pixmap = QPixmap.fromImage(blank_image)
-        self.camdisplay_label.setPixmap(pixmap)
-        # QLabel의 가운데 정렬 설정
-        self.camdisplay_label.setAlignment(Qt.AlignCenter)
+        self.display_label_a.setPixmap(pixmap)
+        self.display_label_a.setAlignment(Qt.AlignCenter)
 
-        # 카메라 오픈 버튼 생성
-        self.camopen_button = QPushButton("Camera Open", self)
-        self.camopen_button.setGeometry(25, 25, 200, 50)  # 시작x, 시작y, width, height
-        # 버튼 클릭 시 카메라 테스트 진행
-        self.camopen_button.clicked.connect(self.cameraTest)
+        # 비디오 A 오픈 버튼
+        self.video_button_a = QPushButton("카메라/영상 A", self)
+        self.video_button_a.setGeometry(25, 25, 200, 50)
+        self.video_button_a.clicked.connect(lambda: self.openVideo("a"))
 
-        # 비디오 오픈 버튼 생성
-        self.videoopen_button = QPushButton("Video Open", self)
-        self.videoopen_button.setGeometry(850, 25, 200, 50)  # 시작x, 시작y, width, height
-        # 버튼 클릭 시 비디오 테스트 진행
-        self.videoopen_button.clicked.connect(self.videoTest)
+        # 비디오 A 탐지 기능 체크박스와 경고 레이블
+        self.check_fall_a = QCheckBox("낙상감지 A", self)
+        self.check_fall_a.setGeometry(25, 720, 250, 30)
+        self.check_fall_a.stateChanged.connect(lambda: self.updateCheckList("a", 0, self.check_fall_a.isChecked()))
+
+        self.alert_label_fall_a = QLabel("NORMAL", self)
+        self.alert_label_fall_a.setGeometry(330, 720, 150, 40)
+        self.initAlertLabel(self.alert_label_fall_a)
+
+        self.check_help_a = QCheckBox("구조감지 A", self)
+        self.check_help_a.setGeometry(25, 770, 250, 30)
+        self.check_help_a.stateChanged.connect(lambda: self.updateCheckList("a", 1, self.check_help_a.isChecked()))
+
+        self.alert_label_help_a = QLabel("NORMAL", self)
+        self.alert_label_help_a.setGeometry(330, 770, 150, 40)
+        self.initAlertLabel(self.alert_label_help_a)
+
+        self.check_fire_a = QCheckBox("화재감지 A", self)
+        self.check_fire_a.setGeometry(25, 820, 250, 30)
+        self.check_fire_a.stateChanged.connect(lambda: self.updateCheckList("a", 2, self.check_fire_a.isChecked()))
+
+        self.alert_label_fire_a = QLabel("NORMAL", self)
+        self.alert_label_fire_a.setGeometry(330, 820, 150, 40)
+        self.initAlertLabel(self.alert_label_fire_a)
+
+        # 비디오 B 화면 출력용 QLabel
+        self.display_label_b = QLabel(self)
+        self.display_label_b.setGeometry(900, 100, 800, 600)
+        self.display_label_b.setPixmap(pixmap)
+        self.display_label_b.setAlignment(Qt.AlignCenter)
+
+        # 비디오 B 오픈 버튼
+        self.video_button_b = QPushButton("카메라/영상 B", self)
+        self.video_button_b.setGeometry(900, 25, 200, 50)
+        self.video_button_b.clicked.connect(lambda: self.openVideo("b"))
+
+        # 비디오 B 탐지 기능 체크박스와 경고 레이블
+        self.check_fall_b = QCheckBox("낙상감지 B", self)
+        self.check_fall_b.setGeometry(900, 720, 250, 30)
+        self.check_fall_b.stateChanged.connect(lambda: self.updateCheckList("b", 0, self.check_fall_b.isChecked()))
+
+        self.alert_label_fall_b = QLabel("NORMAL", self)
+        self.alert_label_fall_b.setGeometry(1205, 720, 150, 40)
+        self.initAlertLabel(self.alert_label_fall_b)
+
+        self.check_help_b = QCheckBox("구조감지 B", self)
+        self.check_help_b.setGeometry(900, 770, 250, 30)
+        self.check_help_b.stateChanged.connect(lambda: self.updateCheckList("b", 1, self.check_help_b.isChecked()))
+
+        self.alert_label_help_b = QLabel("NORMAL", self)
+        self.alert_label_help_b.setGeometry(1205, 770, 150, 40)
+        self.initAlertLabel(self.alert_label_help_b)
+
+        self.check_fire_b = QCheckBox("화재감지 B", self)
+        self.check_fire_b.setGeometry(900, 820, 250, 30)
+        self.check_fire_b.stateChanged.connect(lambda: self.updateCheckList("b", 2, self.check_fire_b.isChecked()))
+
+        self.alert_label_fire_b = QLabel("NORMAL", self)
+        self.alert_label_fire_b.setGeometry(1205, 820, 150, 40)
+        self.initAlertLabel(self.alert_label_fire_b)
 
         # 현재 시간 표시용 
         self.date_label = QLabel("Date : ", self)
@@ -74,89 +130,22 @@ class MainWindow(QMainWindow):
         self.date_timer.timeout.connect(self.updateDate)
         self.date_timer.start(1000)  # 1000ms = 1초
         self.updateDate()
-        # 캡처 및 세이브 버튼
-        self.date_button = QPushButton("Date Save", self)
-        self.date_button.setGeometry(450, 1150, 200, 50)  # 시작x, 시작y, width, height
-        # 버튼 클릭 시 카메라 테스트 진행
-        self.date_button.clicked.connect(self.dateSave)
-        # 테스트용 출력부
-        self.tmpdisplay_label = QLabel(self)
-        self.tmpdisplay_label.setGeometry(850, 100, 800, 600)  # 시작x, 시작y, width, height
-        self.tmpdisplay_label.setPixmap(pixmap)
-        # QLabel의 가운데 정렬 설정
-        self.tmpdisplay_label.setAlignment(Qt.AlignCenter)
 
-        # 체크박스 상태 저장 리스트
-        self.option_check = [False, False, False]
-        # Fall Detection 체크박스
-        self.check_fall = QCheckBox("Fall Detection", self)
-        self.check_fall.setGeometry(25, 720, 210, 30)  # 위치 및 크기
-        self.check_fall.stateChanged.connect(lambda: self.updateOptionCheck(0, self.check_fall.isChecked()))
-        # Help Detection 체크박스
-        self.check_help = QCheckBox("Help Detection", self)
-        self.check_help.setGeometry(25, 770, 210, 30)  # 위치 및 크기
-        self.check_help.stateChanged.connect(lambda: self.updateOptionCheck(1, self.check_help.isChecked()))
-        # Fire Detection 체크박스
-        self.check_fire = QCheckBox("Fire Detection", self)
-        self.check_fire.setGeometry(25, 820, 210, 30)  # 위치 및 크기
-        self.check_fire.stateChanged.connect(lambda: self.updateOptionCheck(2, self.check_fire.isChecked()))
+        self.initDataSheet("a")  # 비디오 A용 데이터 시트 생성
+        self.initDataSheet("b")  # 비디오 B용 데이터 시트 생성
 
-        # 체크박스 상태 저장 리스트
-        self.option_checkv = [False, False, False]
-        # Fall Detection 체크박스
-        self.check_fallv = QCheckBox("Fall Detection", self)
-        self.check_fallv.setGeometry(850, 720, 210, 30)  # 위치 및 크기
-        self.check_fallv.stateChanged.connect(lambda: self.updateOptionCheckv(0, self.check_fallv.isChecked()))
-        # Help Detection 체크박스
-        self.check_helpv = QCheckBox("Help Detection", self)
-        self.check_helpv.setGeometry(850, 770, 210, 30)  # 위치 및 크기
-        self.check_helpv.stateChanged.connect(lambda: self.updateOptionCheckv(1, self.check_helpv.isChecked()))
-        # Fire Detection 체크박스
-        self.check_firev = QCheckBox("Fire Detection", self)
-        self.check_firev.setGeometry(850, 820, 210, 30)  # 위치 및 크기
-        self.check_firev.stateChanged.connect(lambda: self.updateOptionCheckv(2, self.check_firev.isChecked()))
+        self.initEventLogBox() # 이벤트 로그 리스트
 
-        # QLabel 생성 및 초기 설정
-        self.cameralert_label = QLabel("Normal", self)
-        self.cameralert_label.setGeometry(500, 720, 240, 80)  # 위치와 사이즈 설정
-        self.cameralert_label.setStyleSheet("""
-            background-color: white;
-            color: green;
-            font-size: 30px;
-            font-weight: bold;
-            text-align: center;
-        """)
-        self.cameralert_label.setAlignment(Qt.AlignCenter)  # 텍스트 중앙 정렬
+        # 비디오 B 오픈 버튼
+        self.test_button = QPushButton("Test", self)
+        self.test_button.setGeometry(2000, 1050, 250, 70)
+        self.test_button.clicked.connect(lambda: self.doTest())
 
-        # QLabel 생성 및 초기 설정
-        self.cameralert_labelv = QLabel("Normal", self)
-        self.cameralert_labelv.setGeometry(1350, 720, 240, 80)  # 위치와 사이즈 설정
-        self.cameralert_labelv.setStyleSheet("""
-            background-color: white;
-            color: green;
-            font-size: 30px;
-            font-weight: bold;
-            text-align: center;
-        """)
-        self.cameralert_labelv.setAlignment(Qt.AlignCenter)  # 텍스트 중앙 정렬
-
-    def updateOptionCheck(self, index, state):
-        """
-        업데이트된 체크박스 상태를 리스트에 반영합니다.
-        index: self.option_check의 인덱스 (0: Fall, 1: Help, 2: Fire)
-        state: 체크 여부 (True / False)
-        """
-        self.option_check[index] = state
-        print(f"Camera Option {index} updated: {self.option_check}")
-
-    def updateOptionCheckv(self, index, state):
-        """
-        업데이트된 체크박스 상태를 리스트에 반영합니다.
-        index: self.option_check의 인덱스 (0: Fall, 1: Help, 2: Fire)
-        state: 체크 여부 (True / False)
-        """
-        self.option_checkv[index] = state
-        print(f"Video Option {index} updated: {self.option_checkv}")
+    def doTest(self):
+        sample_dict = {"이름":"홍길동","헬멧 색상":"파란색","나이":30,"혈액형":"A","지병 유무":"없음"}
+        self.modifyDataSheet(set="a", num=0, dictionary=sample_dict, stat="정상")
+        self.appendEventLog("Fire detected in camera A")
+        pass
 
     def updateDate(self):
         # time 모듈을 사용해 현재 시간 가져오기
@@ -166,235 +155,256 @@ class MainWindow(QMainWindow):
         self.date_label.setText(f"Date : {system_date}")
         return system_date
     
-    def dateSave(self):
-        # 날짜 받아와서 저장하기 버튼
-        saved_date = self.updateDate()
-        print(saved_date)
-        _, sample_img = self.cap.read()
-        if self.option_check[0]: 
-            sample_img, cropf, is_fall = self.isacfall.fallDetect(sample_img)
-        if self.option_check[2]:
-            sample_img, is_fire = self.isacfire.fireDetect(sample_img)
-            print(is_fire)
-        sample_img = cv2.resize(sample_img, (800, 600))
-        sample_img = cv2.cvtColor(sample_img, cv2.COLOR_BGR2RGB)
-        # numpy 배열을 QImage로 변환
-        h, w, ch = sample_img.shape # 프레임 h, w, 채널
-        bytes_per_line = ch * w
-        qimg = QImage(sample_img.data, w, h, bytes_per_line, QImage.Format_RGB888)
-        # QImage를 QPixmap으로 변환 후 QLabel에 설정
-        pixmap = QPixmap.fromImage(qimg)
-        # QLabel에 이미지 출력
-        self.tmpdisplay_label.setPixmap(pixmap)
-        self.tmpdisplay_label.repaint()
+    def updateCheckList(self, label, index, state):
+        """
+        체크박스 상태 업데이트
+        """
+        if label == "a":
+            self.check_list_a[index] = state
+        elif label == "b":
+            self.check_list_b[index] = state
 
-    # MainWindow 클래스 내에 videoTest 함수 추가
-    def videoTest(self):
-        # 파일 오픈 다이얼로그를 띄워 비디오 파일 선택
+    def initAlertLabel(self, label):
+        """
+        초기 경고 레이블 스타일 설정
+        """
+        label.setStyleSheet("background-color: white; color: green; font-size: 25px; font-weight: bold;")
+        label.setAlignment(Qt.AlignCenter)
+
+    def updateAlertLabels(self, set, fall, help, fire):
+        """
+        경고 레이블 상태를 업데이트
+        """
+        if set == "a":
+            self.setAlertLabel(self.alert_label_fall_a, fall, "FALL!", "yellow", "black")
+            self.setAlertLabel(self.alert_label_help_a, help, "HELP!", "orange", "black")
+            self.setAlertLabel(self.alert_label_fire_a, fire, "FIRE!!", "red", "white")
+        elif set == "b":
+            self.setAlertLabel(self.alert_label_fall_b, fall, "FALL!", "yellow", "black")
+            self.setAlertLabel(self.alert_label_help_b, help, "HELP!", "orange", "black")
+            self.setAlertLabel(self.alert_label_fire_b, fire, "FIRE!!", "red", "white")
+
+    def setAlertLabel(self, label, condition, text, bg_color, text_color):
+        """
+        단일 경고 레이블의 상태를 설정
+        """
+        if condition:
+            label.setText(text)
+            label.setStyleSheet(f"background-color: {bg_color}; color: {text_color}; font-size: 25px; font-weight: bold;")
+        else:
+            label.setText("NORMAL")
+            label.setStyleSheet("background-color: white; color: green; font-size: 25px; font-weight: bold;")
+
+    def openVideo(self, label):
+        """
+        비디오 파일 열기 및 타이머 설정
+        """
         file_path, _ = QFileDialog.getOpenFileName(self, "Open Video File", "", "Video Files (*.mp4 *.avi *.mov *.mkv)")
-        if not file_path:  # 파일이 선택되지 않으면 함수 종료
-            print("No file selected.")
+        if not file_path:
             return
-        
-        # 비디오 캡처 객체 생성
-        self.capv = cv2.VideoCapture(file_path)
-        if not self.capv.isOpened():
-            print(f"Cannot open the video file: {file_path}")
-            return
-        
-        # global is_cam_connect
-        # is_cam_connect = True  # 비디오가 연결된 상태로 설정
 
-        # 프레임 업데이트 타이머 설정
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_video_frame)  # 프레임 업데이트 호출
-        self.timer.start(30)  # 30ms마다 호출 (약 33fps)
+        if label == "a":
+            if self.cap_a:
+                self.cap_a.release()
+            self.cap_a = cv2.VideoCapture(file_path)
+            self.timer_a.timeout.connect(self.updateFrameA)
+            self.timer_a.start(30)
+        elif label == "b":
+            if self.cap_b:
+                self.cap_b.release()
+            self.cap_b = cv2.VideoCapture(file_path)
+            self.timer_b.timeout.connect(self.updateFrameB)
+            self.timer_b.start(30)
 
-    def update_video_frame(self):
-        # VideoCapture로부터 프레임을 가져옴
-        ret, framev = self.capv.read()
-        if ret:
-            # TODO 여기서 영상처리 함수를 호출하여 사용
-            if self.option_checkv[0]: 
-                framev, cropf, is_fall = self.isacfall.fallDetect(framev)
-            if self.option_checkv[1]:
-                is_help = self.isachelp.helpDetect(framev)
-                print(is_help)
-                self.update_alert_label_helpv(is_help)
-            if self.option_checkv[2]:
-                framev, is_fire = self.isacfire.fireDetect(framev)
-                print(is_fire)
-                self.update_alert_label_firev(is_fire)
-            # TODO 영상처리 종료
+    def updateFrameA(self):
+        """
+        비디오 A 프레임 업데이트 및 탐지 모듈 호출
+        """
+        is_fall, is_help, is_fire = False, False, False
+        if self.cap_a is not None and self.cap_a.isOpened():
+            ret, frame = self.cap_a.read()
+            if ret:
+                if self.check_list_a[0]:
+                    frame, cropf, is_falls = self.isacfall_a.fallDetect(frame)
+                    is_fall = any(status for _, status in is_falls)
 
-            framev = cv2.resize(framev, (800, 600))
-            framev = cv2.cvtColor(framev, cv2.COLOR_BGR2RGB)  # 이미지를 RGB 형식으로 변환
-            h, w, ch = framev.shape  # 프레임의 높이, 너비, 채널 정보
-            bytes_per_line = ch * w
-            qimg = QImage(framev.data, w, h, bytes_per_line, QImage.Format_RGB888)
-            pixmap = QPixmap.fromImage(qimg)
-            self.tmpdisplay_label.setPixmap(pixmap)  # QLabel에 이미지 출력
-            self.tmpdisplay_label.repaint()  # 즉시 갱신
+                if self.check_list_a[1]:
+                    is_helps = self.isachelp_a.helpDetect(frame)
+                    is_help = any(status for _, status in is_helps)
+
+                if self.check_list_a[2]:
+                    frame, is_fire = self.isacfire_a.fireDetect(frame)
+
+                self.updateAlertLabels("a", is_fall, is_help, is_fire)
+                self.displayFrame(frame, self.display_label_a)
+            else:
+                self.timer_a.stop()
+                self.cap_a.release()
+
+    def updateFrameB(self):
+        """
+        비디오 B 프레임 업데이트 및 탐지 모듈 호출
+        """
+        is_fall, is_help, is_fire = False, False, False
+        if self.cap_b is not None and self.cap_b.isOpened():
+            ret, frame = self.cap_b.read()
+            if ret:
+                if self.check_list_b[0]:
+                    frame, cropf, is_falls = self.isacfall_b.fallDetect(frame)
+                    is_fall = any(status for _, status in is_falls)
+
+                if self.check_list_b[1]:
+                    is_helps = self.isachelp_b.helpDetect(frame)
+                    is_help = any(status for _, status in is_helps)
+
+                if self.check_list_b[2]:
+                    frame, is_fire = self.isacfire_b.fireDetect(frame)
+
+                self.updateAlertLabels("b", is_fall, is_help, is_fire)
+                self.displayFrame(frame, self.display_label_b)
+            else:
+                self.timer_b.stop()
+                self.cap_b.release()
+
+    def displayFrame(self, frame, label):
+        """
+        프레임을 QLabel에 표시
+        """
+        frame = cv2.resize(frame, (800, 600))
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        h, w, ch = frame.shape
+        bytes_per_line = ch * w
+        qimg = QImage(frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
+        pixmap = QPixmap.fromImage(qimg)
+        label.setPixmap(pixmap)
+
+    # 데이터 시트 생성 메서드 (칸 폭 하드코딩)
+    def initDataSheet(self, set):
+        """
+        데이터 시트를 초기화하여 디스플레이에 추가합니다.
+        set: 'a' 또는 'b', 데이터 시트를 비디오 A 또는 B 아래에 생성
+        """
+        y_offset = 880 if set == 'a' else 880  # Y 위치 조정
+        x_offset = 25 if set == 'a' else 900  # X 위치 조정
+
+        # 데이터 시트의 헤더 생성
+        header_labels = ["번호", "이름", "헬멧 색상", "나이", "혈액형", "지병 유무", "현재 상태"]
+        column_widths = [60, 100, 150, 60, 100, 180, 180]  # 각 칸의 폭을 하드코딩
+        row_height = 35  # 칸의 높이
+
+        if set == 'a':
+            self.data_sheet_rows_a = []  # 비디오 A의 데이터 시트 저장
+            target_sheet = self.data_sheet_rows_a
+        elif set == 'b':
+            self.data_sheet_rows_b = []  # 비디오 B의 데이터 시트 저장
+            target_sheet = self.data_sheet_rows_b
         else:
-            print("Video playback completed.")
-            self.timer.stop()  # 타이머 정지
-            self.capv.release()  # 비디오 캡처 객체 해제
+            raise ValueError("Invalid set identifier. Use 'a' or 'b'.")
 
-    def cameraTest(self):
-        # 카메라 열렸는지 확인
-        global is_cam_connect
-        if not is_cam_connect: # 카메라가 False 상태의 경우, 카메라 영상 가져오기
-            is_cam_connect = True
-            # opencv로 웹캠 열기
-            self.cap = cv2.VideoCapture(0)
-            if not self.cap.isOpened():
-                print("Can not open the camera!")
-                is_cam_connect = False
-                return
-            # 프레임 업데이트 타이머 설정
-            self.timer = QTimer(self)
-            self.timer.timeout.connect(self.update_frame) # 프레임 업데이트 호출
-            self.timer.start(30)
-        else: # 카메라가 True 상태의 경우, 카메라 정지, 릴리즈
-            is_cam_connect = False
-            self.timer.stop()
-            self.cap.release()
-    
-    def update_alert_label_fire(self, is_fire):
-        if is_fire:
-            # 화재 상태
-            self.cameralert_label.setText("Fire!!")
-            self.cameralert_label.setStyleSheet("""
-                background-color: red;
-                color: black;
-                font-size: 40px;
-                font-weight: bold;
-                text-align: center;
-            """)
+        current_x = x_offset  # 현재 X 위치를 추적
+        for i, header in enumerate(header_labels):
+            header_label = QLabel(header, self)
+            header_label.setGeometry(current_x, y_offset, column_widths[i], row_height)
+            header_label.setStyleSheet("background-color: lightgray; font-size: 25px; font-weight: bold; text-align: center;")
+            header_label.setAlignment(Qt.AlignCenter)
+            current_x += column_widths[i]  # 다음 칸의 시작 위치로 이동
+
+        # 데이터 시트의 각 행 생성 (최대 5명)
+        for row_idx in range(5):  # 최대 5명
+            row_data = []
+            current_x = x_offset  # 각 행의 X 위치 초기화
+            for col_idx in range(len(header_labels)):
+                data_field = QLineEdit(self)
+                data_field.setGeometry(current_x, y_offset + row_height + row_idx * row_height, column_widths[col_idx], row_height)
+                data_field.setStyleSheet("background-color: white; border: 1px solid lightgray; font-size: 25px;")
+                data_field.setAlignment(Qt.AlignCenter)
+                data_field.setReadOnly(True)  # 기본적으로 읽기 전용
+                row_data.append(data_field)
+                current_x += column_widths[col_idx]  # 다음 칸의 시작 위치로 이동
+            target_sheet.append(row_data)
+
+        # 가로선 추가
+        for row_idx in range(6):  # 5행 + 마지막 구분선
+            separator_line = QLabel(self)
+            separator_line.setGeometry(x_offset, y_offset + row_height + row_idx * row_height, sum(column_widths), 1)
+            separator_line.setStyleSheet("background-color: lightgray;")
+
+    def modifyDataSheet(self, set: str, num: int, dictionary: dict, stat: str):
+        """
+        데이터 시트의 특정 행에 데이터를 입력하고 상태를 업데이트합니다.
+        """
+        # 데이터 시트 선택
+        if set == "a":
+            target_sheet = self.data_sheet_rows_a
+        elif set == "b":
+            target_sheet = self.data_sheet_rows_b
         else:
-            # 정상 상태
-            self.cameralert_label.setText("Normal")
-            self.cameralert_label.setStyleSheet("""
-                background-color: white;
-                color: green;
-                font-size: 30px;
-                font-weight: bold;
-                text-align: center;
-            """)
-    def update_alert_label_help(self, status_list):
-        # 리스트에 True가 있는지 검사
-        is_help = any(status for _, status in status_list)
-        if is_help:
-            # HELP 상태: 노란색 배경, 검정색 글씨
-            self.cameralert_label.setText("HELP!")
-            self.cameralert_label.setStyleSheet("""
-                background-color: yellow;
-                color: black;
-                font-size: 40px;
-                font-weight: bold;
-                text-align: center;
-            """)
-        else:
-            # 원래 상태 (Normal)
-            self.cameralert_label.setText("Normal")
-            self.cameralert_label.setStyleSheet("""
-                background-color: white;
-                color: green;
-                font-size: 30px;
-                font-weight: bold;
-                text-align: center;
-            """)
-    def update_alert_label_firev(self, is_fire):
-        if is_fire:
-            # 화재 상태
-            self.cameralert_labelv.setText("Fire!!")
-            self.cameralert_labelv.setStyleSheet("""
-                background-color: red;
-                color: black;
-                font-size: 40px;
-                font-weight: bold;
-                text-align: center;
-            """)
-        else:
-            # 정상 상태
-            self.cameralert_labelv.setText("Normal")
-            self.cameralert_labelv.setStyleSheet("""
-                background-color: white;
-                color: green;
-                font-size: 30px;
-                font-weight: bold;
-                text-align: center;
-            """)
-    def update_alert_label_helpv(self, status_list):
-        # 리스트에 True가 있는지 검사
-        is_help = any(status for _, status in status_list)
-        if is_help:
-            # HELP 상태: 노란색 배경, 검정색 글씨
-            self.cameralert_labelv.setText("HELP!")
-            self.cameralert_labelv.setStyleSheet("""
-                background-color: yellow;
-                color: black;
-                font-size: 40px;
-                font-weight: bold;
-                text-align: center;
-            """)
-        else:
-            # 원래 상태 (Normal)
-            self.cameralert_labelv.setText("Normal")
-            self.cameralert_labelv.setStyleSheet("""
-                background-color: white;
-                color: green;
-                font-size: 30px;
-                font-weight: bold;
-                text-align: center;
-            """)
+            raise ValueError("Invalid set identifier. Use 'a' or 'b'.")
+
+        # 행 번호 유효성 검사
+        if num < 0 or num >= len(target_sheet):
+            raise IndexError(f"Invalid row number {num}. Must be between 0 and {len(target_sheet) - 1}.")
+
+        # 딕셔너리 키 순서와 데이터 시트 열 순서를 맞추기 위한 키 리스트
+        keys = ["이름", "헬멧 색상", "나이", "혈액형", "지병 유무"]
+
+        # 첫 번째 열에 숫자 입력
+        target_sheet[num][0].setText(str(num + 1))  # 첫 번째 열에 번호 입력 (1부터 시작)
+
+        # 딕셔너리 데이터 입력
+        for col_idx, key in enumerate(keys, start=1):  # 1번부터 데이터 열 시작
+            if key in dictionary:
+                target_sheet[num][col_idx].setText(str(dictionary[key]))
+            else:
+                target_sheet[num][col_idx].setText("")  # 키가 없으면 빈 값 설정
+
+        # 상태 열에 상태 문자열 입력
+        target_sheet[num][len(keys) + 1].setText(stat)  # 마지막 열에 상태 입력
 
 
-    def update_frame(self):
-        # VideoCapture로부터 프레임을 가져옴
-        ret, frame = self.cap.read()
+    # 이벤트 기록 박스 생성 메서드
+    def initEventLogBox(self):
+        """
+        감시 카메라 이벤트를 기록하기 위한 세로로 긴 텍스트 박스를 생성합니다.
+        """
+        x_offset = 1800  # 이벤트 박스 시작 위치 (오른쪽 공백)
+        y_offset = 100   # 박스의 Y 시작 위치
+        width = 650      # 박스의 너비
+        height = 900     # 박스의 높이
 
-        if ret:
-            # TODO 여기서 영상처리 함수를 호출하여 사용
-            if self.option_check[0]: 
-                frame, cropf, is_fall = self.isacfall.fallDetect(frame)
-            if self.option_check[1]:
-                is_help = self.isachelp.helpDetect(frame)
-                print(is_help)
-                self.update_alert_label_help(is_help)
-            if self.option_check[2]:
-                frame, is_fire = self.isacfire.fireDetect(frame)
-                print(is_fire)
-                self.update_alert_label_fire(is_fire)
-            # TODO 영상처리 종료
+        # QLabel로 제목 생성
+        self.event_log_title = QLabel("이벤트 로그", self)
+        self.event_log_title.setGeometry(x_offset, y_offset - 50, width, 40)
+        self.event_log_title.setStyleSheet("background-color: lightgray; color: black; font-size: 25px; font-weight: bold; text-align: center;")
+        self.event_log_title.setAlignment(Qt.AlignCenter)
 
-            # 이미지 출력 시작
-            # 이미지를 RGB 형식으로 변환
-            frame = cv2.resize(frame, (800, 600))
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            # numpy 배열을 QImage로 변환
-            h, w, ch = frame.shape # 프레임 h, w, 채널
-            bytes_per_line = ch * w
-            qimg = QImage(frame.data, w, h, bytes_per_line, QImage.Format_RGB888)
-            # QImage를 QPixmap으로 변환 후 QLabel에 설정
-            pixmap = QPixmap.fromImage(qimg)
-            # QLabel에 이미지 출력
-            self.camdisplay_label.setPixmap(pixmap)
-            # 이미지 출력 완료
-        else:
-            print("Can not read the frame!")
+        # QTextEdit 생성 (이벤트 기록용)
+        self.event_log_box = QTextEdit(self)
+        self.event_log_box.setGeometry(x_offset, y_offset, width, height)
+        self.event_log_box.setStyleSheet("background-color: white; border: 1px solid gray; font-size: 25px;")
+        self.event_log_box.setReadOnly(True)  # 읽기 전용으로 설정
+
+    def appendEventLog(self, message):
+        """
+        이벤트 박스에 새로운 메시지를 추가합니다.
+        :param message: 기록할 이벤트 메시지 (문자열)
+        """
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())  # 현재 시간 기록
+        self.event_log_box.append(f"[{timestamp}] {message}")  # 시간과 메시지 형식으로 추가
+
+
     def closeEvent(self, event):
-        # 창 닫을 때 웹캠 해제 및 타이머 정지
-        self.timer.stop()
-        self.cap.release()
+        """
+        창 닫을 때 자원 해제
+        """
+        if self.cap_a:
+            self.cap_a.release()
+        if self.cap_b:
+            self.cap_b.release()
         event.accept()
-# endregion 메인 윈도우 클래스 정의
 
 if __name__ == "__main__":
-    # QApplication 생성
     app = QApplication(sys.argv)
-    # 메인 윈도우 생성
     main_window = MainWindow()
     main_window.show()
-    # 이벤트 루프 실행
     sys.exit(app.exec_())
