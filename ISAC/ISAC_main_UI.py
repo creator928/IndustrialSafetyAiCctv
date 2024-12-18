@@ -307,8 +307,8 @@ class MainWindow(QMainWindow):
     def update_alert_label_firev(self, is_fire):
         if is_fire:
             # 화재 상태
-            self.cameralert_label.setText("Fire!!")
-            self.cameralert_label.setStyleSheet("""
+            self.cameralert_labelv.setText("Fire!!")
+            self.cameralert_labelv.setStyleSheet("""
                 background-color: red;
                 color: black;
                 font-size: 40px;
@@ -317,8 +317,8 @@ class MainWindow(QMainWindow):
             """)
         else:
             # 정상 상태
-            self.cameralert_label.setText("Normal")
-            self.cameralert_label.setStyleSheet("""
+            self.cameralert_labelv.setText("Normal")
+            self.cameralert_labelv.setStyleSheet("""
                 background-color: white;
                 color: green;
                 font-size: 30px;
@@ -330,8 +330,8 @@ class MainWindow(QMainWindow):
         is_help = any(status for _, status in status_list)
         if is_help:
             # HELP 상태: 노란색 배경, 검정색 글씨
-            self.cameralert_label.setText("HELP!")
-            self.cameralert_label.setStyleSheet("""
+            self.cameralert_labelv.setText("HELP!")
+            self.cameralert_labelv.setStyleSheet("""
                 background-color: yellow;
                 color: black;
                 font-size: 40px;
@@ -340,8 +340,8 @@ class MainWindow(QMainWindow):
             """)
         else:
             # 원래 상태 (Normal)
-            self.cameralert_label.setText("Normal")
-            self.cameralert_label.setStyleSheet("""
+            self.cameralert_labelv.setText("Normal")
+            self.cameralert_labelv.setStyleSheet("""
                 background-color: white;
                 color: green;
                 font-size: 30px;
