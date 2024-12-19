@@ -77,7 +77,7 @@ class MainWindow(QMainWindow):
         self.initUI()
 
         # TODO 외부 PLC 접속
-
+        self.plc_controller = ISAC_PLCController('192.168.0.70', 0, 1, 1)
     # region 윈도우 UI 그리기
     def initUI(self):
         window_width = self.width()
@@ -381,7 +381,13 @@ class MainWindow(QMainWindow):
                 if self.plc_onoff is not None:
                     print(self.plc_onoff)
                     # TODO PLC 화재 정보 전달
-
+                    if self.plc_onoff == True:
+                        self.plc_controller.controlBit(2, True)
+                    elif self.plc_onoff == False: 
+                        self.plc_controller.controlBit(2, False)
+                    elif self.plc_onoff == None :
+                        pass
+        
         # 이벤트 로그 관리
         if set_name == "a":
             self.detectedEventLog(condition, text, self.log_switch_a, self.event_timers_a, index, set_name)

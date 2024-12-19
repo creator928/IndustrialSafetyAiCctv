@@ -8,6 +8,10 @@ def get_external_signal():
         return True
     elif user_input == '1':
         return False
+    elif user_input == '2':
+        return 2
+    elif user_input == '3':
+        return 3
     elif user_input.lower() == 'exit':
         exit()
     else:
@@ -27,6 +31,13 @@ try:
         elif external_signal == False:
             plc_controller.controlBit(1, True)
             plc_controller.controlBit(1, False)  # 0.5초 후 비트 끄기
+        elif external_signal == 2:
+            plc_controller.controlBit(2,True)
+        elif external_signal == 3:
+            plc_controller.controlBit(2,False)
+
+        elif external_signal == None :
+            pass
 finally:
     plc_controller.disconnect()
 
