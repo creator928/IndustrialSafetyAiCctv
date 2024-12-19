@@ -12,6 +12,7 @@ from isac_pkg.fallDetector.fallDector import ISAC_FallDetector
 from isac_pkg.helpDetector.helpDetector import ISAC_HelpDetector
 from isac_pkg.fireDetector.fireDetector import ISAC_FireDetector
 from isac_pkg.fextDetector.fextDetector import ISAC_FextDetector
+from isac_pkg.plcControl.plcControl import ISAC_PLCController
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -65,6 +66,8 @@ class MainWindow(QMainWindow):
         self.sprinkler_state_a = False  # False: 작동 안 함, True: 작동 중
         self.sprinkler_state_b = False
         
+        self.plc_controller = ISAC_PLCController('192.168.0.70', 0, 1, 1)
+
         # PLC 컨트롤러 화재 경고창 온오프 전달값
         self.fire_onoff_a = False
         self.fire_onoff_b = False
