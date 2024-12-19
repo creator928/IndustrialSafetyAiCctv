@@ -10,3 +10,5 @@ ultralytics==8.3.48
 PyQt5==5.14.2
 # for object tracking 용
 lap==0.5.12
+# PLC Connect
+python-snap7

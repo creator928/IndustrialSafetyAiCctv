@@ -12,6 +12,7 @@ from isac_pkg.fallDetector.fallDector import ISAC_FallDetector
 from isac_pkg.helpDetector.helpDetector import ISAC_HelpDetector
 from isac_pkg.fireDetector.fireDetector import ISAC_FireDetector
 from isac_pkg.fextDetector.fextDetector import ISAC_FextDetector
+from isac_pkg.plcControl.plcControl import ISAC_PLCController
 
 # MainWindow 클래스 정의
 class MainWindow(QMainWindow):
@@ -62,6 +63,7 @@ class MainWindow(QMainWindow):
         self.initUI()
 
         # TODO 외부 PLC 접속
+        self.plc_controller = ISAC_PLCController('192.168.0.70', 0, 1, 1)
 
     def initUI(self):
         # 메인 윈도우 설정
@@ -221,6 +223,9 @@ class MainWindow(QMainWindow):
                 self.sprinkler_state_a = True
                 # TODO T/F를 받는 함수
                 print(self.sprinkler_state_a)
+                if self.sprinkler_state_a == True:
+                    self.plc_controller.controlBit(0, True)
+                    self.plc_controller.controlBit(0, False) 
 
             else:  # 스프링클러 정지
                 self.water_button_a.setText("스프링클러 작동")
@@ -228,6 +233,9 @@ class MainWindow(QMainWindow):
                 self.sprinkler_state_a = False
                 # TODO T/F를 받는 함수
                 print(self.sprinkler_state_a)
+                if self.sprinkler_state_a == False:
+                    self.plc_controller.controlBit(1, True)
+                    self.plc_controller.controlBit(1, False) 
 
         elif label == "b":
             if not self.sprinkler_state_b:  # 스프링클러 작동
@@ -236,6 +244,9 @@ class MainWindow(QMainWindow):
                 self.sprinkler_state_b = True
                 # TODO T/F를 받는 함수
                 print(self.sprinkler_state_b)
+                if self.sprinkler_state_b == True:
+                    self.plc_controller.controlBit(0, True)
+                    self.plc_controller.controlBit(0, False) 
 
             else:  # 스프링클러 정지
                 self.water_button_b.setText("스프링클러 작동")
@@ -243,6 +254,9 @@ class MainWindow(QMainWindow):
                 self.sprinkler_state_b = False
                 # TO DO T/F를 받는 함수
                 print(self.sprinkler_state_b)
+                if self.sprinkler_state_b == False:
+                    self.plc_controller.controlBit(1, True)
+                    self.plc_controller.controlBit(1, False) 
 
     def updateDate(self):
         # time 모듈을 사용해 현재 시간 가져오기
