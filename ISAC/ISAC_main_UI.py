@@ -66,8 +66,6 @@ class MainWindow(QMainWindow):
         self.sprinkler_state_a = False  # False: 작동 안 함, True: 작동 중
         self.sprinkler_state_b = False
         
-        self.plc_controller = ISAC_PLCController('192.168.0.70', 0, 1, 1)
-
         # PLC 컨트롤러 화재 경고창 온오프 전달값
         self.fire_onoff_a = False
         self.fire_onoff_b = False
@@ -78,6 +76,7 @@ class MainWindow(QMainWindow):
 
         # TODO 외부 PLC 접속
         self.plc_controller = ISAC_PLCController('192.168.0.70', 0, 1, 1)
+
     # region 윈도우 UI 그리기
     def initUI(self):
         window_width = self.width()
