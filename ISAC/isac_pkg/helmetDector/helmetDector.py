@@ -4,7 +4,7 @@ import pandas as pd
 import os
 from ultralytics import YOLO
 
-class HelmetDetector:
+class ISAC_DectHelmet:
     def __init__(self, model_path="best.pt", csv_filename="work_info.csv"):
         self.model = YOLO(os.path.join(os.path.dirname(os.path.abspath(__file__)), model_path))  # YOLO 모델 로드
         self.names = self.model.model.names  # 클래스 이름 로드

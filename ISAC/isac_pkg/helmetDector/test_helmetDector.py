@@ -1,11 +1,11 @@
 import tkinter as tk
 from tkinter import filedialog
-from helmetDector import HelmetDetector
+from helmetDector import ISAC_DectHelmet
 import cv2
 
 def main():
     # HelmetDetector 클래스 인스턴스 생성
-    helmet_detector = HelmetDetector()
+    helmet_detector = ISAC_DectHelmet()
 
     # Tkinter 파일 다이얼로그를 사용하여 이미지 선택
     root = tk.Tk()
