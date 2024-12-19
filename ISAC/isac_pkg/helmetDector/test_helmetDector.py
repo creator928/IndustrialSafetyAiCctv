@@ -1,12 +1,12 @@
 import tkinter as tk
 from tkinter import filedialog
-from helmetDector import ISAC_DectHelmet
+from helmetDector import HelmetDetector
 import cv2
 
-# ISAC_DectHelmet 클래스 인스턴스 생성
-helmet_dect = ISAC_DectHelmet()
-
 def main():
+    # HelmetDetector 클래스 인스턴스 생성
+    helmet_detector = HelmetDetector()
+
     # Tkinter 파일 다이얼로그를 사용하여 이미지 선택
     root = tk.Tk()
     root.withdraw()  # Tkinter 메인 윈도우 숨기기
@@ -24,18 +24,10 @@ def main():
         return
 
     # 선택된 이미지 경로로 작업
-    frame = cv2.imread(test_image_path)
-
-    if frame is None:
-        print(f"Error: Cannot load image from {test_image_path}")
-        return
-
-    # process_frame 호출
-    work_info = helmet_dect.processFrame(frame)
-
+    work_info = helmet_detector.process_image(test_image_path)
 
     # 결과 출력
-    if work_info:
+    if work_info and not isinstance(work_info, dict):
         print("Detected workers:")
         for worker in work_info:
             print(worker)
