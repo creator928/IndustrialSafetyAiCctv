@@ -12,8 +12,6 @@ from isac_pkg.fallDetector.fallDector import ISAC_FallDetector
 from isac_pkg.helpDetector.helpDetector import ISAC_HelpDetector
 from isac_pkg.fireDetector.fireDetector import ISAC_FireDetector
 from isac_pkg.fextDetector.fextDetector import ISAC_FextDetector
-from isac_pkg.plcControl.plcControl import ISAC_PLCController
-
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -66,13 +64,16 @@ class MainWindow(QMainWindow):
         # 스프링클러 상태 변수
         self.sprinkler_state_a = False  # False: 작동 안 함, True: 작동 중
         self.sprinkler_state_b = False
+        
+        # PLC 컨트롤러 화재 경고창 온오프 전달값
+        self.fire_onoff_a = False
+        self.fire_onoff_b = False
+        self.plc_onoff = None
 
         # UI 초기화
         self.initUI()
 
         # TODO 외부 PLC 접속
-        self.plc_controller = ISAC_PLCController('192.168.0.70', 0, 1, 1)
-
 
     # region 윈도우 UI 그리기
     def initUI(self):
@@ -90,6 +91,11 @@ class MainWindow(QMainWindow):
         # 비디오 A 오픈 버튼
         self.video_button_a = QPushButton("영상 A", self)
         self.video_button_a.clicked.connect(lambda: self.openVideo("a"))
+
+        # "카메라 A" 버튼 추가
+        self.camera_button_a = QPushButton("카메라 A", self)
+        self.camera_button_a.clicked.connect(self.openWebcam)
+
 
         # A 세트의 체크박스와 경고 레이블
         self.check_fall_a = QCheckBox("낙상감지 A", self)
@@ -208,8 +214,17 @@ class MainWindow(QMainWindow):
 
         # 비디오 A 오픈 버튼 크기 및 위치
         self.video_button_a.setGeometry(int(window_width * 0.025), int(window_height * 0.02), int(window_width * 0.12), int(window_height * 0.05))
-
         self.video_button_a.setStyleSheet(f"font-size: {int(window_height * 0.025)}px;")
+
+        # "카메라 A" 버튼 위치 및 크기
+        self.camera_button_a.setGeometry(
+            self.video_button_a.geometry().right() + int(window_width * 0.01),
+            self.video_button_a.geometry().top(),
+            int(window_width * 0.12),
+            self.video_button_a.height(),
+            )
+        self.camera_button_a.setStyleSheet(f"font-size: {int(window_height * 0.025)}px;")
+
 
         # 체크박스와 경고 레이블 위치 및 크기
         self.check_fall_a.setGeometry(int(window_width * 0.025), int(window_height * 0.525), int(window_width * 0.12), int(window_height * 0.05))
@@ -357,13 +372,42 @@ class MainWindow(QMainWindow):
         else:
             label.setText("NORMAL")
             label.setStyleSheet(f"background-color: white; color: green; font-size: {int(window_height * 0.025)}px; font-weight: bold;")
+        # PLC 컨트롤러 화재 온오프 전달
+        if text == "FIRE!!":
+                self.plc_onoff = self.fireOnOffCall(set_name, condition)
+                if self.plc_onoff is not None:
+                    print(self.plc_onoff)
+                    # TODO PLC 화재 정보 전달
 
         # 이벤트 로그 관리
         if set_name == "a":
             self.detectedEventLog(condition, text, self.log_switch_a, self.event_timers_a, index, set_name)
         elif set_name == "b":
             self.detectedEventLog(condition, text, self.log_switch_b, self.event_timers_b, index, set_name)
-    
+    # PLC 컨트롤러 화재 경고창 온오프 전달
+    def fireOnOffCall(self, identifier: str, condition: bool):
+        """
+        identifier와 condition 값을 받아 상태 변화를 추적하여 알림을 반환합니다.
+        
+        Args:
+            identifier (str): "a" 또는 "b"로 구분되는 대상
+            condition (bool): 현재 상태 값
+        
+        Returns:
+            bool or None: 상태 변화에 따른 알림 값
+                          - True: 상태가 False에서 True로 변경됨
+                          - False: 상태가 True에서 False로 변경됨
+                          - None: 상태가 변경되지 않음
+        """
+        if identifier == "a":
+            if condition != self.fire_onoff_a:
+                self.fire_onoff_a = condition
+                return condition
+        elif identifier == "b":
+            if condition != self.fire_onoff_b:
+                self.fire_onoff_b = condition
+                return condition
+        return None  # 상태가 변경되지 않음
     def detectedEventLog(self, condition: bool, text: str, logswitch: list, event_timers: list, index: int, set_name: str):
         """
         감지 이벤트를 로그에 출력하고 상태 전환 시 임계 시간을 고려합니다.
@@ -375,7 +419,6 @@ class MainWindow(QMainWindow):
         :param set_name: 이벤트 발생 세트 이름 ("a" 또는 "b")
         """
         current_time = time.time()  # 현재 시간(초)
-
         # 상태 변경 감지
         if condition != logswitch[index]:  # 상태가 변경된 경우
             event_timers[index] = current_time  # 상태 변경 시간 기록
