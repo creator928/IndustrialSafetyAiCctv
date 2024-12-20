@@ -12,6 +12,7 @@ from isac_pkg.fallDetector.fallDector import ISAC_FallDetector
 from isac_pkg.helpDetector.helpDetector import ISAC_HelpDetector
 from isac_pkg.fireDetector.fireDetector import ISAC_FireDetector
 from isac_pkg.fextDetector.fextDetector import ISAC_FextDetector
+from isac_pkg.gearDetector.gearDetector import ISAC_GearDetector
 from isac_pkg.plcControl.plcControl import ISAC_PLCController
 
 class MainWindow(QMainWindow):
@@ -25,12 +26,14 @@ class MainWindow(QMainWindow):
             "fall": {"last_true_frame": -1, "current_state": False},
             "help": {"last_true_frame": -1, "current_state": False},
             "fire": {"last_true_frame": -1, "current_state": False},
+            "gear": {"last_true_frame": -1, "current_state": False},
         }
 
         self.event_timestamps_b = {
             "fall": {"last_true_frame": -1, "current_state": False},
             "help": {"last_true_frame": -1, "current_state": False},
             "fire": {"last_true_frame": -1, "current_state": False},
+            "gear": {"last_true_frame": -1, "current_state": False},
         }
 
         # 탐지 모듈 초기화
@@ -38,11 +41,13 @@ class MainWindow(QMainWindow):
         self.isachelp_a = ISAC_HelpDetector()
         self.isacfire_a = ISAC_FireDetector()
         self.isacfext_a = ISAC_FextDetector()
+        self.isacgear_a = ISAC_GearDetector()
 
         self.isacfall_b = ISAC_FallDetector()
         self.isachelp_b = ISAC_HelpDetector()
         self.isacfire_b = ISAC_FireDetector()
         self.isacfext_b = ISAC_FextDetector()
+        self.isacgear_b = ISAC_GearDetector()
 
         # 비디오 캡처 객체 초기화
         self.cap_a = None
@@ -57,10 +62,10 @@ class MainWindow(QMainWindow):
         self.check_list_b = [False, False, False, False]
 
         # 로그 스위치 리스트 선언
-        self.log_switch_a = [False, False, False]  # 비디오 A용
-        self.log_switch_b = [False, False, False]  # 비디오 B용
-        self.event_timers_a = [0, 0, 0]  # Fall, Help, Fire 이벤트 상태 변경 시간 (비디오 A용)
-        self.event_timers_b = [0, 0, 0]  # Fall, Help, Fire 이벤트 상태 변경 시간 (비디오 B용)
+        self.log_switch_a = [False, False, False, False]  # 비디오 A용
+        self.log_switch_b = [False, False, False, False]  # 비디오 B용
+        self.event_timers_a = [0, 0, 0, 0]  # Fall, Help, Fire 이벤트 상태 변경 시간 (비디오 A용)
+        self.event_timers_b = [0, 0, 0, 0]  # Fall, Help, Fire 이벤트 상태 변경 시간 (비디오 B용)
 
         # 스프링클러 상태 변수
         self.sprinkler_state_a = False  # False: 작동 안 함, True: 작동 중
@@ -121,6 +126,8 @@ class MainWindow(QMainWindow):
         self.check_gear_a = QCheckBox("안전장비감지 A", self)
         self.alert_label_gear_a = QLabel("NORMAL", self)
         self.alert_label_gear_a.setAlignment(Qt.AlignCenter)
+        self.check_gear_a.stateChanged.connect(lambda: self.updateCheckList("a", 3, self.check_gear_a.isChecked()))
+        self.initAlertLabel(self.alert_label_gear_a)
 
         # A 세트의 스프링클러와 소방장비 버튼
         self.water_button_a = QPushButton("스프링클러 작동", self)
@@ -163,6 +170,7 @@ class MainWindow(QMainWindow):
         self.alert_label_gear_b = QLabel("NORMAL", self)
         self.alert_label_gear_b.setAlignment(Qt.AlignCenter)
         self.check_gear_b.stateChanged.connect(lambda: self.updateCheckList("b", 3, self.check_gear_b.isChecked()))
+        self.initAlertLabel(self.alert_label_gear_b)
 
 
         # B 세트의 스프링클러와 소방장비 버튼
@@ -196,6 +204,14 @@ class MainWindow(QMainWindow):
         self.date_timer.timeout.connect(self.updateDate)
         self.date_timer.start(1000)  # 1000ms = 1초
         self.updateDate()
+
+        # 로고 QLabel 추가
+        self.logo_label = QLabel(self)
+        self.logo_label.setAlignment(Qt.AlignCenter)
+        self.logo_label.setStyleSheet("background-color: transparent;")
+        pixmap = QPixmap("logo.png")
+        self.logo_label.setPixmap(pixmap.scaled(self.event_log_box.width(), pixmap.height(), Qt.KeepAspectRatio))
+
 
         # UI 업데이트
         self.updateUI()
@@ -231,22 +247,22 @@ class MainWindow(QMainWindow):
         # 체크박스와 경고 레이블 위치 및 크기
         self.check_fall_a.setGeometry(int(window_width * 0.025), int(window_height * 0.525), int(window_width * 0.12), int(window_height * 0.05))
         self.check_fall_a.setStyleSheet(f"font-size: {int(window_height * 0.025)}px;")
-        self.alert_label_fall_a.setGeometry(int(window_width * 0.12), int(window_height * 0.525), int(window_width * 0.12), int(window_height * 0.05))
+        self.alert_label_fall_a.setGeometry(int(window_width * 0.13), int(window_height * 0.525), int(window_width * 0.11), int(window_height * 0.05))
         self.alert_label_fall_a.setStyleSheet(f"font-size: {int(window_height * 0.025)}px;")
 
         self.check_help_a.setGeometry(int(window_width * 0.025), int(window_height * 0.575), int(window_width * 0.12), int(window_height * 0.05))
         self.check_help_a.setStyleSheet(f"font-size: {int(window_height * 0.025)}px;")
-        self.alert_label_help_a.setGeometry(int(window_width * 0.12), int(window_height * 0.575), int(window_width * 0.12), int(window_height * 0.05))
+        self.alert_label_help_a.setGeometry(int(window_width * 0.13), int(window_height * 0.575), int(window_width * 0.11), int(window_height * 0.05))
         self.alert_label_help_a.setStyleSheet(f"font-size: {int(window_height * 0.025)}px;")
 
         self.check_fire_a.setGeometry(int(window_width * 0.025), int(window_height * 0.625), int(window_width * 0.12), int(window_height * 0.05))
         self.check_fire_a.setStyleSheet(f"font-size: {int(window_height * 0.025)}px;")
-        self.alert_label_fire_a.setGeometry(int(window_width * 0.12), int(window_height * 0.625), int(window_width * 0.12), int(window_height * 0.05))
+        self.alert_label_fire_a.setGeometry(int(window_width * 0.13), int(window_height * 0.625), int(window_width * 0.11), int(window_height * 0.05))
         self.alert_label_fire_a.setStyleSheet(f"font-size: {int(window_height * 0.025)}px;")
 
         self.check_gear_a.setGeometry(int(window_width * 0.025), int(window_height * 0.675), int(window_width * 0.12), int(window_height * 0.05))
         self.check_gear_a.setStyleSheet(f"font-size: {int(window_height * 0.025)}px;")
-        self.alert_label_gear_a.setGeometry(int(window_width * 0.12), int(window_height * 0.675), int(window_width * 0.12), int(window_height * 0.05))
+        self.alert_label_gear_a.setGeometry(int(window_width * 0.13), int(window_height * 0.675), int(window_width * 0.11), int(window_height * 0.05))
         self.alert_label_gear_a.setStyleSheet(f"font-size: {int(window_height * 0.025)}px;")
 
         # 스프링클러와 소방장비 버튼 위치 및 크기
@@ -266,22 +282,22 @@ class MainWindow(QMainWindow):
         # 체크박스와 경고 레이블 위치 및 크기
         self.check_fall_b.setGeometry(int(window_width * 0.4), int(window_height * 0.525), int(window_width * 0.12), int(window_height * 0.05))
         self.check_fall_b.setStyleSheet(f"font-size: {int(window_height * 0.025)}px;")
-        self.alert_label_fall_b.setGeometry(int(window_width * 0.495), int(window_height * 0.525), int(window_width * 0.12), int(window_height * 0.05))
+        self.alert_label_fall_b.setGeometry(int(window_width * 0.505), int(window_height * 0.525), int(window_width * 0.11), int(window_height * 0.05))
         self.alert_label_fall_b.setStyleSheet(f"font-size: {int(window_height * 0.025)}px;")
 
         self.check_help_b.setGeometry(int(window_width * 0.4), int(window_height * 0.575), int(window_width * 0.12), int(window_height * 0.05))
         self.check_help_b.setStyleSheet(f"font-size: {int(window_height * 0.025)}px;")
-        self.alert_label_help_b.setGeometry(int(window_width * 0.495), int(window_height * 0.575), int(window_width * 0.12), int(window_height * 0.05))
+        self.alert_label_help_b.setGeometry(int(window_width * 0.505), int(window_height * 0.575), int(window_width * 0.11), int(window_height * 0.05))
         self.alert_label_help_b.setStyleSheet(f"font-size: {int(window_height * 0.025)}px;")
 
         self.check_fire_b.setGeometry(int(window_width * 0.4), int(window_height * 0.625), int(window_width * 0.12), int(window_height * 0.05))
         self.check_fire_b.setStyleSheet(f"font-size: {int(window_height * 0.025)}px;")
-        self.alert_label_fire_b.setGeometry(int(window_width * 0.495), int(window_height * 0.625), int(window_width * 0.12), int(window_height * 0.05))
+        self.alert_label_fire_b.setGeometry(int(window_width * 0.505), int(window_height * 0.625), int(window_width * 0.11), int(window_height * 0.05))
         self.alert_label_fire_b.setStyleSheet(f"font-size: {int(window_height * 0.025)}px;")
 
         self.check_gear_b.setGeometry(int(window_width * 0.4), int(window_height * 0.675), int(window_width * 0.12), int(window_height * 0.05))
         self.check_gear_b.setStyleSheet(f"font-size: {int(window_height * 0.025)}px;")
-        self.alert_label_gear_b.setGeometry(int(window_width * 0.495), int(window_height * 0.675), int(window_width * 0.12), int(window_height * 0.05))
+        self.alert_label_gear_b.setGeometry(int(window_width * 0.505), int(window_height * 0.675), int(window_width * 0.11), int(window_height * 0.05))
         self.alert_label_gear_b.setStyleSheet(f"font-size: {int(window_height * 0.025)}px;")
 
         # 스프링클러와 소방장비 버튼 위치 및 크기
@@ -295,7 +311,7 @@ class MainWindow(QMainWindow):
         event_log_x = int(window_width * 0.775)  # 오른쪽 여유 공간에 위치
         event_log_y = int(window_height * 0.025)  # 위쪽 여백
         event_log_width = int(window_width * 0.2)  # 오른쪽에 차지하는 폭
-        event_log_height = int(window_height * 0.9)  # 전체 높이
+        event_log_height = int(window_height * 0.8)  # 전체 높이
 
         # 제목 크기 및 위치
         self.event_log_title.setGeometry(event_log_x, event_log_y, event_log_width, int(window_height * 0.03))
@@ -308,6 +324,15 @@ class MainWindow(QMainWindow):
         # 현재 시간 표시 QLabel 위치 및 크기
         self.date_label.setGeometry(int(window_width * 0.01), int(window_height * 0.95), int(window_width * 0.4), int(window_height * 0.04))
         self.date_label.setStyleSheet(f"font-size: {int(window_height * 0.03)}px; color: black;")
+
+        # 로고 위치 및 크기
+        logo_x = self.event_log_box.x()
+        logo_y = self.event_log_box.y() + self.event_log_box.height() + int(window_height * 0.01)  # 이벤트 로그 박스 바로 아래
+        logo_width = self.event_log_box.width()
+        self.logo_label.setGeometry(logo_x, logo_y, logo_width, int(window_height * 0.1))  # 높이를 적절히 설정
+        pixmap = QPixmap("logo.png")
+        self.logo_label.setPixmap(pixmap.scaled(logo_width, self.logo_label.height(), Qt.KeepAspectRatio))
+
     # endregion 창 크기 변경 관련 함수 끝
 
     # 시간 업데이트 함수(좌하단 시계)
@@ -342,7 +367,7 @@ class MainWindow(QMainWindow):
         label.setStyleSheet(f"background-color: white; color: green; font-size: {int(window_height * 0.025)}px; font-weight: bold;")
         label.setAlignment(Qt.AlignCenter)
 
-    def updateAlertLabels(self, set, fall, help, fire):
+    def updateAlertLabels(self, set, fall, help, fire, gear):
         """
         경고 레이블 상태를 업데이트
         """
@@ -350,10 +375,12 @@ class MainWindow(QMainWindow):
             self.setAlertLabel(self.alert_label_fall_a, fall, "FALL!", "yellow", "black", set, 0)
             self.setAlertLabel(self.alert_label_help_a, help, "HELP!", "orange", "black", set, 1)
             self.setAlertLabel(self.alert_label_fire_a, fire, "FIRE!!", "red", "white", set, 2)
+            self.setAlertLabel(self.alert_label_gear_a, gear, "NO SAFTY", "green", "white", set, 3)
         elif set == "b":
             self.setAlertLabel(self.alert_label_fall_b, fall, "FALL!", "yellow", "black", set, 0)
             self.setAlertLabel(self.alert_label_help_b, help, "HELP!", "orange", "black", set, 1)
             self.setAlertLabel(self.alert_label_fire_b, fire, "FIRE!!", "red", "white", set, 2)
+            self.setAlertLabel(self.alert_label_gear_b, gear, "NO SAFTY", "green", "white", set, 3)
 
     def setAlertLabel(self, label, condition, text, bg_color, text_color, set_name: str, index: int):
         """
@@ -497,7 +524,7 @@ class MainWindow(QMainWindow):
         """
         비디오 A 프레임 업데이트 및 탐지 모듈 호출
         """
-        is_fall, is_help, is_fire = False, False, False
+        is_fall, is_help, is_fire, is_gear = False, False, False, False
         if self.cap_a is not None and self.cap_a.isOpened():
             ret, frame = self.cap_a.read()
             if ret:
@@ -512,9 +539,14 @@ class MainWindow(QMainWindow):
                 if self.check_list_a[2]:
                     frame, is_fire = self.isacfire_a.fireDetect(frame)
                 
-                is_fall, is_help, is_fire = self.eventContinuity("a", is_fall, is_help, is_fire)
+                if self.check_list_a[3]:
+                    _, is_gears = self.isacgear_a.gearDetect(frame)
+                    # print(is_gears)
+                    is_gear = not any(status for _, status in is_gears)
+                
+                is_fall, is_help, is_fire, is_gear = self.eventContinuity("a", is_fall, is_help, is_fire, is_gear)
 
-                self.updateAlertLabels("a", is_fall, is_help, is_fire)
+                self.updateAlertLabels("a", is_fall, is_help, is_fire, is_gear)
                 self.displayFrame(frame, self.display_label_a)
             else:
                 self.timer_a.stop()
@@ -524,7 +556,7 @@ class MainWindow(QMainWindow):
         """
         비디오 B 프레임 업데이트 및 탐지 모듈 호출
         """
-        is_fall, is_help, is_fire = False, False, False
+        is_fall, is_help, is_fire, is_gear = False, False, False, False
         if self.cap_b is not None and self.cap_b.isOpened():
             ret, frame = self.cap_b.read()
             if ret:
@@ -538,10 +570,15 @@ class MainWindow(QMainWindow):
 
                 if self.check_list_b[2]:
                     frame, is_fire = self.isacfire_b.fireDetect(frame)
+                
+                if self.check_list_b[3]:
+                    _, is_gears = self.isacgear_b.gearDetect(frame)
+                    # print(is_gears)
+                    is_gear = not any(status for _, status in is_gears)
 
-                is_fall, is_help, is_fire = self.eventContinuity("b", is_fall, is_help, is_fire)
+                is_fall, is_help, is_fire, is_gear = self.eventContinuity("b", is_fall, is_help, is_fire, is_gear)
 
-                self.updateAlertLabels("b", is_fall, is_help, is_fire)
+                self.updateAlertLabels("b", is_fall, is_help, is_fire, is_gear)
                 self.displayFrame(frame, self.display_label_b)
             else:
                 self.timer_b.stop()
@@ -571,7 +608,7 @@ class MainWindow(QMainWindow):
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())  # 현재 시간 기록
         self.event_log_box.append(f"[{timestamp}] {message}")  # 시간과 메시지 형식으로 추가
 
-    def eventContinuity(self, label, is_fall, is_help, is_fire):
+    def eventContinuity(self, label, is_fall, is_help, is_fire, is_gear):
         """
         이벤트 상태 지속성을 관리하는 함수.
         특정 상태(True)가 발생한 이후 16 프레임 동안 False 상태가 지속되지 않으면 상태를 유지합니다.
@@ -596,7 +633,7 @@ class MainWindow(QMainWindow):
 
         # 이벤트별로 상태 지속성 관리
         results = {}
-        for event, is_event in zip(["fall", "help", "fire"], [is_fall, is_help, is_fire]):
+        for event, is_event in zip(["fall", "help", "fire", "gear"], [is_fall, is_help, is_fire, is_gear]):
             if is_event:  # True 상태가 들어온 경우
                 event_timestamps[event]["last_true_frame"] = current_frame  # 마지막 True 프레임 기록
                 event_timestamps[event]["current_state"] = True  # 상태 유지
@@ -608,7 +645,7 @@ class MainWindow(QMainWindow):
             # 현재 상태 기록
             results[event] = event_timestamps[event]["current_state"]
 
-        return results["fall"], results["help"], results["fire"]
+        return results["fall"], results["help"], results["fire"], results["gear"]
     # endregion 이벤트 로그 테스트 및 이벤트 지속성 평가 끝
 
     # region 스프링클러 작동 버튼
@@ -738,7 +775,7 @@ class MainWindow(QMainWindow):
         """
         웹캠 프레임을 display_label_a에 실시간으로 표시합니다.
         """
-        is_fall, is_help, is_fire = False, False, False
+        is_fall, is_help, is_fire, is_gear = False, False, False, False
         if self.webcam_cap is not None and self.webcam_cap.isOpened():
             ret, frame = self.webcam_cap.read()
             if ret:
@@ -753,9 +790,14 @@ class MainWindow(QMainWindow):
                 if self.check_list_a[2]:
                     frame, is_fire = self.isacfire_a.fireDetect(frame)
 
-                is_fall, is_help, is_fire = self.eventContinuity("a", is_fall, is_help, is_fire)
+                if self.check_list_a[3]:
+                    _, is_gears = self.isacgear_a.gearDetect(frame)
+                    # print(is_gears)
+                    is_gear = not any(status for _, status in is_gears)
 
-                self.updateAlertLabels("a", is_fall, is_help, is_fire)
+                is_fall, is_help, is_fire, is_gear = self.eventContinuity("a", is_fall, is_help, is_fire, is_gear)
+
+                self.updateAlertLabels("a", is_fall, is_help, is_fire, is_gear)
                 self.displayFrame(frame, self.display_label_a)
             else:
                 self.stopWebcam()  # 프레임 읽기 실패 시 웹캠 종료
