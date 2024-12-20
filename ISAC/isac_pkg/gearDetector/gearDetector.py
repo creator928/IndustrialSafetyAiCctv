@@ -8,7 +8,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 MODEL = YOLO(os.path.join(current_dir, "best_gear.pt"))  # YOLO11s 모델
 MODEL2 = YOLO(os.path.join(current_dir, "yolo11n.pt"))  # YOLO11s 모델
 
-class ISAC_GearDect():
+class ISAC_GearDetector():
     def __init__(self):
         pass
 
@@ -58,12 +58,12 @@ class ISAC_GearDect():
 
         return detected_img, cropped_img, cropped_bbxy
 
-    def process(self, img):
+    def gearDetect(self, img):
         detected_img, cropped_imgs, cropped_bbxy = self.yoloPersonDetect(img)
 
         gear_results = []
         if cropped_imgs:  # 사람이 감지된 경우에만 처리
-            for (cropped, bbxy) in zip(cropped_imgs, cropped_bbxy):
+            for index, (cropped, bbxy) in enumerate(zip(cropped_imgs, cropped_bbxy)):
                 gear_detected = self.fallDetect(cropped)
                 x1, y1, x2, y2 = bbxy
                 if gear_detected:
@@ -71,9 +71,7 @@ class ISAC_GearDect():
                 else:
                     color = (0, 0, 255)  # Red for no gear
                 cv2.rectangle(detected_img, (x1, y1), (x2, y2), color, 2)
-                gear_results.append(gear_detected)
+                # 인덱스와 감지 결과를 추가
+                gear_results.append((index, gear_detected))
 
-        # 튜플 형식으로 각 결과를 변환
-        formatted_results = tuple(f'[{res}]' for res in gear_results)
-
-        return detected_img, formatted_results
+        return detected_img, gear_results
